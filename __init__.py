@@ -1,7 +1,7 @@
 
 bl_info = {
     "name": "Layout Companion",
-    "version": (1, 5, 1),
+    "version": (1, 5, 2),
     "author": "Arciwise",
     "blender": (4, 5, 0),
     "description": "Tools for Layouters",

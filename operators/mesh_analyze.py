@@ -18,11 +18,10 @@ class MESH_OT_AnalyzeMesh(bpy.types.Operator):
     
     def get_all_meshes(self, context):
         selected_obj = context.active_object
-        
-        if selected_obj.parent and selected_obj.parent.type == 'EMPTY':
-            parent_empty = self.find_top_parent(selected_obj)
+
+        def collect_meshes_from_empty(obj):
             meshes = []
-            def collect_meshes(obj):
+            def collect(obj):
                 if obj.type == 'MESH':
                     meshes.append({
                         'object': obj,
@@ -31,18 +30,38 @@ class MESH_OT_AnalyzeMesh(bpy.types.Operator):
                         'original_collections': list(obj.users_collection)
                     })
                 for child in obj.children:
-                    collect_meshes(child)
-            
-            if parent_empty:
-                collect_meshes(parent_empty)
+                    collect(child)
+            collect(obj)
             return meshes
+
+        if selected_obj.parent and selected_obj.parent.type == 'EMPTY':
+            parent_empty = self.find_top_parent(selected_obj)
+            if parent_empty:
+                return collect_meshes_from_empty(parent_empty)
+
         elif selected_obj.type == 'MESH':
+            # Verifica si el objeto pertenece a una colección y recolecta otros objetos mesh
+            if selected_obj.users_collection:
+                target_col = selected_obj.users_collection[0]
+                meshes = []
+                for obj in target_col.objects:
+                    if obj.type == 'MESH':
+                        meshes.append({
+                            'object': obj,
+                            'matrix_world': obj.matrix_world.copy(),
+                            'name': obj.name,
+                            'original_collections': list(obj.users_collection)
+                        })
+                return meshes
+
+            # Si no tiene colección, solo usa el objeto actual
             return [{
                 'object': selected_obj,
                 'matrix_world': selected_obj.matrix_world.copy(),
                 'name': selected_obj.name,
                 'original_collections': list(selected_obj.users_collection)
             }]
+
         return []
 
     def clean_mesh_bmesh(self, obj, remove_doubles=True):

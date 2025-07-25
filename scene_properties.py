@@ -5,6 +5,10 @@ bpy.types.Scene.render_settings_fold = bpy.props.BoolProperty(
     name="Show Render Settings",
     default=False
 )
+bpy.types.Scene.show_render_status = bpy.props.BoolProperty(
+    name="Show Blend Status",
+    default=True
+)
 bpy.types.Scene.import_settings_fold = bpy.props.BoolProperty(
     name="Show Render Settings",
     default=False
@@ -13,8 +17,8 @@ bpy.types.Scene.props_settings_fold = bpy.props.BoolProperty(
     name="Show Prop Settings",
     default=False
 )
-bpy.types.Scene.show_AdvancePropSettings = bpy.props.BoolProperty(
-        name="Toggle Prop Settings",
+bpy.types.Scene.show_advance_prop_settings = bpy.props.BoolProperty(
+        name="Prop Cleaner Settings",
         default=False
 )
 bpy.types.Scene.show_prop_helpInfo = bpy.props.BoolProperty(

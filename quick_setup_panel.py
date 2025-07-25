@@ -14,24 +14,8 @@ class RENDER_PT_QuickSetupPanel(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         scene = context.scene
-        
-        # Import Settings
-        # col = layout.column()
-        # row = col.row()
-        # row.prop(scene, "import_settings_fold", 
-        #         icon='TRIA_DOWN' if scene.import_settings_fold else 'TRIA_RIGHT',
-        #         icon_only=True, 
-        #         emboss=False)
-        # row.label(text="Imports", icon="GROUP")
-        
-        # if scene.import_settings_fold:
-        #     box = col.box()
-        #     row = box.row()
-        #     row.operator("import.image_as_plane", text="Import Image as plane", icon='MESH_PLANE')
-        
-        # layout.separator(factor=1)
-            
-        
+    
+     
         # Render Settings
         col = layout.column()
         row = col.row()
@@ -39,34 +23,37 @@ class RENDER_PT_QuickSetupPanel(bpy.types.Panel):
                 icon='TRIA_DOWN' if scene.render_settings_fold else 'TRIA_RIGHT',
                 icon_only=True, 
                 emboss=False)
-        row.label(text="BLEND SETUP", icon="BLENDER")
+        row.label(text="BLEND STATUS", icon="BLENDER")
         
         if scene.render_settings_fold:
             box = col.box()
             row = box.row()
             row.operator("render.quick_setup", text="Setup .Blend to Render", icon='SETTINGS')
             
-            icon = 'STRIP_COLOR_01' if not bpy.app.version >= (4, 5, 0) else 'STRIP_COLOR_04'
-            box.label(text="Blender Version", icon=icon)
-            
-            scene_count = len(bpy.data.scenes)
-            icon = 'STRIP_COLOR_01' if scene_count > 1 else 'STRIP_COLOR_04'
-            box.label(text="Only One Scene", icon=icon)
-            
-            cameraCollectionAvaible = is_collection_exist("CAMERA")
-            dofText = "DOF in Camera Collection"
-            if not cameraCollectionAvaible:
-                box.label(text="'CAMERA' Collection in Scene", icon="STRIP_COLOR_01")
-            elif cameraCollectionAvaible.objects.get("DOF"):
-                box.label(text= dofText, icon="STRIP_COLOR_04")
-            else:
-                box.label(text= dofText, icon="STRIP_COLOR_01")
+            box.prop(scene, "show_render_status", toggle=True)
+            if scene.show_render_status:
                 
-            collection_name = "NOTAS_LAYOUT"
-            isVisibleOnRender = is_any_object_visible_in_render(collection_name)
-            iconRender = 'STRIP_COLOR_04' if not isVisibleOnRender else 'STRIP_COLOR_01'
-            box.label(text="Visible Layout Notes", icon=iconRender)
-            layout.separator(factor=2)
+                icon = 'STRIP_COLOR_01' if not bpy.app.version >= (4, 5, 0) else 'STRIP_COLOR_04'
+                box.label(text="Blender version", icon=icon)
+                #------------------
+                scene_count = len(bpy.data.scenes)
+                icon = 'STRIP_COLOR_01' if scene_count > 1 else 'STRIP_COLOR_04'
+                box.label(text="Only one scene", icon=icon)
+                #------------------
+                cameraCollectionAvaible = is_collection_exist("CAMERA")
+                dofText = "DOF in camera collection"
+                if not cameraCollectionAvaible:
+                    box.label(text="'CAMERA' Collection in Scene", icon="STRIP_COLOR_01")
+                elif cameraCollectionAvaible.objects.get("DOF"):
+                    box.label(text= dofText, icon="STRIP_COLOR_04")
+                else:
+                    box.label(text= dofText, icon="STRIP_COLOR_01")
+                #------------------
+                collection_name = "NOTAS_LAYOUT"
+                isVisibleOnRender = is_any_object_visible_in_render(collection_name)
+                iconRender = 'STRIP_COLOR_04' if not isVisibleOnRender else 'STRIP_COLOR_01'
+                box.label(text="Visible layout notes", icon=iconRender)
+                layout.separator(factor=2)
         
         layout.separator(factor=1)
             
@@ -81,9 +68,9 @@ class RENDER_PT_QuickSetupPanel(bpy.types.Panel):
        
         if scene.props_settings_fold:
             box = col.box()
-            box.prop(scene, "show_AdvancePropSettings", toggle=True)
+            box.prop(scene, "show_advance_prop_settings", toggle=True)
             
-            if scene.show_AdvancePropSettings:
+            if scene.show_advance_prop_settings:
                 box.prop(scene, "remove_doubles", text="Remove Double Vertices")
                 box.prop(scene, "remove_empties", text="Remove Emptys")
                 box.prop(scene, "add_in_collection", text="Create Collection")

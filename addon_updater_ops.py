@@ -259,10 +259,8 @@ class AddonUpdaterCheckNow(bpy.types.Operator):
 
         updater.set_check_interval(
             enabled=settings.auto_check_update,
-            months=settings.updater_interval_months,
             days=settings.updater_interval_days,
-            hours=settings.updater_interval_hours,
-            minutes=settings.updater_interval_minutes)
+            hours=settings.updater_interval_hours)
 
         # Input is an optional callback function. This function should take a
         # bool input. If true: update ready, if false: no update ready.
@@ -795,10 +793,8 @@ def check_for_update_background():
     if not settings:
         return
     updater.set_check_interval(enabled=settings.auto_check_update,
-                               months=settings.updater_interval_months,
                                days=settings.updater_interval_days,
-                               hours=settings.updater_interval_hours,
-                               minutes=settings.updater_interval_minutes)
+                               hours=settings.updater_interval_hours)
 
     # Input is an optional callback function. This function should take a bool
     # input, if true: update ready, if false: no update ready.
@@ -820,10 +816,8 @@ def check_for_update_nonthreaded(self, context):
                 __package__))
         return
     updater.set_check_interval(enabled=settings.auto_check_update,
-                               months=settings.updater_interval_months,
                                days=settings.updater_interval_days,
-                               hours=settings.updater_interval_hours,
-                               minutes=settings.updater_interval_minutes)
+                               hours=settings.updater_interval_hours)
 
     (update_ready, version, link) = updater.check_for_update(now=False)
     if update_ready:

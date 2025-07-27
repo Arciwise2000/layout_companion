@@ -1,4 +1,4 @@
-
+import os
 import bpy
 
 def add_decimate_modifier():
@@ -6,23 +6,17 @@ def add_decimate_modifier():
     selected_objects = bpy.context.selected_objects
     
     if not selected_objects:
-        print("⚠️ No objects selected")
         return False
     
     last_obj = None
     for obj in selected_objects:
         if obj.type == 'MESH':  # Only applicable to mesh objects
-            # Check if the object already has a Decimate modifier
             if "Decimate" not in obj.modifiers:
                 decimate_mod = obj.modifiers.new(name="Decimate", type='DECIMATE')
                 decimate_mod.ratio = 0.9
-                print(f"✅ Decimate modifier added to {obj.name}")
-            else:
-                print(f"⚠️ {obj.name} already has a Decimate modifier")
         
         last_obj = obj
     
-     # Activa la pestaña Modifiers en el Properties panel
     if last_obj:
         bpy.context.view_layer.objects.active = last_obj
         for area in bpy.context.window.screen.areas:
@@ -35,9 +29,8 @@ def add_decimate_modifier():
 
 
 def is_any_object_visible_in_render(collection_name):
-    collection = bpy.data.collections.get(collection_name)
+    collection = is_collection_exist(collection_name)
     if not collection:
-        print(f"⚠️ Colección '{collection_name}' no encontrada")
         return False
     
     if collection.hide_render == False:
@@ -56,10 +49,20 @@ def is_any_object_visible_in_render(collection_name):
 def is_collection_exist(collection_name):
     collection = bpy.data.collections.get(collection_name)
     if not collection:
-        print(f"⚠️ Colección '{collection_name}' no encontrada")
         return None
     
     return collection
+
+def file_exists_in_blend_directory(filename: str) -> bool:
+    blend_path = bpy.data.filepath
+
+    if not blend_path:
+        return False
+
+    blend_dir = os.path.dirname(blend_path)
+    target_path = os.path.join(blend_dir, filename)
+    return os.path.exists(target_path)
+
 
 def get_icon_by_vertices(vertices):
     if vertices > 100000:

@@ -9,7 +9,7 @@ GIST_URL = "https://arciwise2000.github.io/HornstrompScales/charactersData.json"
 class CLOUD_OT_GetNameList(bpy.types.Operator):
     bl_idname = "cloud.get_name_list"
     bl_label = "Get Character List"
-
+    bl_description = "Busca las escalas de los personajes almacenados en la nube"
     def execute(self, context):
         thread = threading.Thread(target=self.fetch_character_list, args=(context,))
         thread.start()
@@ -33,7 +33,10 @@ class CLOUD_OT_GetNameList(bpy.types.Operator):
                     bpy.types.Scene.character_list_items = bpy.props.CollectionProperty(type=CharacterListItem)
                     bpy.types.Scene.character_list_index = bpy.props.IntProperty(default=0)
                     bpy.types.Scene.character_list_filter = bpy.props.StringProperty(name="Filter", default="")
-
+                    scene.show_character_list = True
+                else:
+                    scene.show_character_list = True
+                     
                 scene.character_list_items.clear()
 
                 for character in data['characters']:

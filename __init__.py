@@ -1,7 +1,7 @@
 
 bl_info = {
     "name": "Layout Companion",
-    "version": (1, 5, 4),
+    "version": (1, 5, 6),
     "author": "Arciwise",
     "blender": (4, 5, 0),
     "description": "Tools for Layouters",
@@ -16,9 +16,9 @@ from .operators.quick_render_setup import RENDER_OT_QuickSetup
 from .operators.cloud_get_name_list import CLOUD_OT_GetNameList
 from .operators.object_fix_materials import MESH_OT_FixMaterials
 from .operators.character_apply_scale import CHARACTER_OT_ApplyScaleToSelected
+from .operators.update_character import UC_Updated_Character, UC_Operator_Updated_Character
 from .operators.object_add_decimate import OBJECT_OT_AddDecimateModifier
-from .quick_setup_panel import RENDER_PT_QuickSetupPanel
-from .quick_setup_panel import RENDER_PT_UpdaterPreferences
+from .quick_setup_panel import RENDER_PT_QuickSetupPanel, RENDER_PT_UpdaterPreferences
 from .characters_ui_list import CHARACTERS_UL_List
 from .character_list_item import CharacterListItem
 
@@ -36,7 +36,10 @@ def register():
     bpy.utils.register_class(CHARACTER_OT_ApplyScaleToSelected)
     bpy.utils.register_class(OBJECT_OT_AddDecimateModifier)
     
-
+    bpy.utils.register_class(UC_Updated_Character)  # ← Esto debe ir antes
+    bpy.types.Scene.uc_updated_character = bpy.props.PointerProperty(type=UC_Updated_Character)
+    bpy.utils.register_class(UC_Operator_Updated_Character)
+    
     bpy.types.Scene.character_list_items = bpy.props.CollectionProperty(type=CharacterListItem)
     bpy.types.Scene.character_list_index = bpy.props.IntProperty(default=0)
     bpy.types.Scene.character_list_filter = bpy.props.StringProperty(name="Filter", default="")
@@ -52,6 +55,11 @@ def unregister():
     bpy.utils.unregister_class(MESH_OT_FixMaterials)
     bpy.utils.unregister_class(CHARACTER_OT_ApplyScaleToSelected)
     bpy.utils.unregister_class(OBJECT_OT_AddDecimateModifier)
+
+    del bpy.types.Scene.uc_updated_character
+    bpy.utils.unregister_class(UC_Updated_Character)
+    bpy.utils.unregister_class(UC_Operator_Updated_Character)
+    
     del bpy.types.Scene.character_list_items
     del bpy.types.Scene.character_list_index
     del bpy.types.Scene.character_list_filter

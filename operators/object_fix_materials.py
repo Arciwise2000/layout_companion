@@ -77,3 +77,26 @@ class MESH_OT_FixMaterials(bpy.types.Operator):
                         principled.inputs['Emission Strength'].default_value = 0.0
 
         return {'FINISHED'}
+    
+_emission_mode_enabled = False  # variable global temporal
+
+class MESH_OT_EmissionView(bpy.types.Operator):
+    bl_idname = "mesh.emission_view"
+    bl_label = ""
+    bl_description = "Alterna entre shading COMBINED y EMISSION"
+    bl_options = {'INTERNAL'}
+
+    def execute(self, context):
+        global _emission_mode_enabled
+        area = next((a for a in context.screen.areas if a.type == 'VIEW_3D'), None)
+        if not area:
+            return {'CANCELLED'}
+
+        for space in area.spaces:
+            if space.type == 'VIEW_3D':
+                space.shading.type = 'MATERIAL'
+                _emission_mode_enabled = not _emission_mode_enabled
+                space.shading.render_pass = 'EMISSION' if _emission_mode_enabled else 'COMBINED'
+                break
+
+        return {'FINISHED'}

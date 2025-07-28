@@ -1,7 +1,7 @@
 
 bl_info = {
     "name": "Layout Companion",
-    "version": (1, 5, 7),
+    "version": (1, 6, 0),
     "author": "Arciwise",
     "blender": (4, 5, 0),
     "description": "Tools for Layouters",
@@ -14,7 +14,7 @@ from . import addon_updater_ops
 from .operators.mesh_analyze import MESH_OT_AnalyzeMesh
 from .operators.quick_render_setup import RENDER_OT_QuickSetup
 from .operators.cloud_get_name_list import CLOUD_OT_GetNameList
-from .operators.object_fix_materials import MESH_OT_FixMaterials
+from .operators.object_fix_materials import MESH_OT_FixMaterials, MESH_OT_EmissionView
 from .operators.character_apply_scale import CHARACTER_OT_ApplyScaleToSelected
 from .operators.update_character import UC_Updated_Character, UC_Operator_Updated_Character
 from .operators.object_add_decimate import OBJECT_OT_AddDecimateModifier
@@ -33,6 +33,7 @@ def register():
     bpy.utils.register_class(RENDER_OT_QuickSetup)
     bpy.utils.register_class(CLOUD_OT_GetNameList)
     bpy.utils.register_class(MESH_OT_FixMaterials)
+    bpy.utils.register_class(MESH_OT_EmissionView)
     bpy.utils.register_class(CHARACTER_OT_ApplyScaleToSelected)
     bpy.utils.register_class(OBJECT_OT_AddDecimateModifier)
     
@@ -53,6 +54,7 @@ def unregister():
     bpy.utils.unregister_class(RENDER_OT_QuickSetup)
     bpy.utils.unregister_class(CLOUD_OT_GetNameList)
     bpy.utils.unregister_class(MESH_OT_FixMaterials)
+    bpy.utils.unregister_class(MESH_OT_EmissionView)
     bpy.utils.unregister_class(CHARACTER_OT_ApplyScaleToSelected)
     bpy.utils.unregister_class(OBJECT_OT_AddDecimateModifier)
 

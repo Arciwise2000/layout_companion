@@ -18,12 +18,13 @@ bpy.types.Scene.props_settings_fold = bpy.props.BoolProperty(
     default=False
 )
 bpy.types.Scene.show_advance_prop_settings = bpy.props.BoolProperty(
-        name="Prop Cleaner Settings",
-        default=False
+    name="Prop Cleaner Settings",
+    default=False
 )
+
 bpy.types.Scene.show_prop_helpInfo = bpy.props.BoolProperty(
-        name="Check Prop Verts. Status",
-        default=False
+    name="Check Prop Verts. Status",
+    default=False
 )
 bpy.types.Scene.characters_fold = bpy.props.BoolProperty(
     name="Characters Settings",
@@ -31,7 +32,7 @@ bpy.types.Scene.characters_fold = bpy.props.BoolProperty(
 )
 bpy.types.Scene.show_character_list = bpy.props.BoolProperty(
     name="",
-    default=True
+    default=False
 )
 bpy.types.Scene.remove_empties = bpy.props.BoolProperty(
     name="Remove Emptys",
@@ -53,3 +54,16 @@ bpy.types.Scene.mergeObjects = bpy.props.BoolProperty(
     description="Junta todas las partes en una sola",
     default=False
 )
+
+#NO PERDURABLE PROPERTIES
+def register_props():
+    bpy.types.WindowManager.show_characterUpdater = bpy.props.BoolProperty(
+        name="",
+        default=False,
+        description="Mostrar opciones de actualización de personaje",
+        options={'SKIP_SAVE'}
+    )
+
+def unregister_props():
+    del bpy.types.WindowManager.show_characterUpdater
+

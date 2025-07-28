@@ -3,55 +3,54 @@ import bpy.utils.previews
 import os
 
 def update_available_collections(self, context):
-    """Actualizar las colecciones disponibles al cambiar el archivo .blend"""
-    # Obtener las colecciones disponibles llamando a get_available_collections
     available_collections = get_available_collections(self, context)
-    
-    # Actualizar dinámicamente los elementos de la propiedad EnumProperty
     self["name_collection_items"] = available_collections
-    self.name_collection = available_collections[0][0] if available_collections else ""
+    self.name_collection = available_collections[0][0]
     
 def get_available_collections(self, context):
-    """Generar dinámicamente las colecciones disponibles en el archivo .blend"""
     if self.new_collection and os.path.isfile(bpy.path.abspath(self.new_collection)):
         try:
             with bpy.data.libraries.load(bpy.path.abspath(self.new_collection), link=False) as (data_from, data_to):
                 items = [(col, col, "") for col in data_from.collections]
                 items.reverse()
-                return items
+                if items:
+                    return items
         except Exception as e:
             print(f"Error loading file: {e}")
-    return []
+    return [("NONE", "None", "No hay colecciones disponibles")]
+
 
 def get_filtered_collections(self, context):
-    filtered = []
+    filtered = [("NONE", "Empty", "Sin colección seleccionada")] 
+
     parent = bpy.data.collections.get("PERSONAJES")
     if parent:
         for child in parent.children:
             filtered.append((child.name, child.name, ""))
-            print("Filtradas:", [col.name for col in parent.children])
+
     return filtered
 
-class UC_Updated_Character(bpy.types.PropertyGroup):
 
+class UC_Updated_Character(bpy.types.PropertyGroup):
     collection_enum: bpy.props.EnumProperty(
-    name="collection",
-    description="Debe estar dentro del collection 'PERSONAJES'",
-    items=get_filtered_collections
+        name="Collection",
+        description="Debe estar dentro del collection 'PERSONAJES'",
+        items=get_filtered_collections,
+        options={'SKIP_SAVE'}
     )
-    
     new_collection: bpy.props.StringProperty(
         name="New Collection",
         description="Path to the new file",
         default="",
         subtype='FILE_PATH',
         update=update_available_collections,
+        options={'SKIP_SAVE'}
     )
-    
     name_collection: bpy.props.EnumProperty(
         name="Name Collection",
         description="Collections available in the selected .blend file",
         items=get_available_collections,
+        options={'SKIP_SAVE'}
     )
 
 class UC_Operator_Updated_Character(bpy.types.Operator):
@@ -61,12 +60,11 @@ class UC_Operator_Updated_Character(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        props = context.scene.uc_updated_character
-        return bool(props.name_collection)
+        return bool(context.window_manager.uc_updated_character.name_collection)
 
 
     def execute(self, context):
-        props = context.scene.uc_updated_character
+        props = context.window_manager.uc_updated_character
         collections = bpy.data.collections
         parent_file = props.new_collection
         
@@ -120,8 +118,7 @@ class UC_Operator_Updated_Character(bpy.types.Operator):
                         break
             
             if old_rig and new_rig:
-                
-
+    
                 # Transferir manualmente los datos de animación
                 if hasattr(old_rig, "animation_data") and old_rig.animation_data:
                     # Crear datos de animación en new_rig si no existen
@@ -171,10 +168,20 @@ class UC_Operator_Updated_Character(bpy.types.Operator):
                 new_rig.select_set(True)
                 bpy.ops.object.transforms_to_deltas(mode='ALL')
 
-            
-            
             imported_collection.name = props.collection_enum
         else:
             self.report({'WARNING'}, f"Collection '{collection_name}' not found after import.")
-        
+    
+        props.new_collection = ""
+
         return {"FINISHED"}
+    
+    
+def register_props():
+    bpy.types.WindowManager.uc_updated_character = bpy.props.PointerProperty(
+        type=UC_Updated_Character,
+        options={'SKIP_SAVE'}
+    )
+
+def unregister_props():
+    del bpy.types.WindowManager.uc_updated_character

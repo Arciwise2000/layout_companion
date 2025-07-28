@@ -49,6 +49,11 @@ def draw_layout_status_content(layout, context):
         hasRenderNotes = file_exists_in_blend_directory("NOTAS RENDER.txt")
         iconLayoutNote = 'STRIP_COLOR_09' if not hasRenderNotes else 'STRIP_COLOR_04'
         layout.label(text="Render notes", icon=iconLayoutNote)
+        
+        fps = scene.render.fps
+        total_frames = scene.frame_end - (scene.frame_start - 1)
+        seconds = total_frames / fps
+        layout.label(text= f"{seconds:.2f} Seconds", icon="TIME")
 
 def draw_props_settings_content(layout, context):
     scene = context.scene
@@ -86,34 +91,41 @@ def draw_props_settings_content(layout, context):
 def draw_character_settings_content(layout, context):
     scene = context.scene
     layout.label(text="Character Scales", icon='CON_SIZELIKE')
-    layout.operator("cloud.get_name_list", icon="IMPORT")
+    row = layout.row()
+    row.operator("cloud.get_name_list", icon="IMPORT")
 
     if hasattr(scene, "character_list_items"):
-        layout.prop(scene, "show_character_list", toggle=True, icon="HIDE_OFF" if scene.show_character_list else "HIDE_ON")
+        row.prop(scene, "show_character_list", toggle=True, icon="HIDE_OFF" if scene.show_character_list else "HIDE_ON")
 
-    if scene.show_character_list and hasattr(scene, "character_list_items"):
-        layout.template_list("CHARACTERS_UL_List", "", scene, "character_list_items", scene, "character_list_index", rows=5)
+        if scene.show_character_list:
+            layout.template_list("CHARACTERS_UL_List", "", scene, "character_list_items", scene, "character_list_index", rows=5)
 
-        if scene.character_list_index >= 0 and len(scene.character_list_items) > scene.character_list_index:
-            selected = scene.character_list_items[scene.character_list_index]
-            layout.label(text=f"Scale: {selected.scale:.4f}", icon='DOT')
+            if scene.character_list_index >= 0 and len(scene.character_list_items) > scene.character_list_index:
+                selected = scene.character_list_items[scene.character_list_index]
+                layout.label(text=f"Scale: {selected.scale:.4f}", icon='DOT')
 
-        layout.operator("character.apply_scale_to_selected", text="Apply Scale", icon='CON_SIZELIKE')
+            layout.operator("character.apply_scale_to_selected", text="Apply Scale", icon='CON_SIZELIKE')
 
     layout.separator(factor=1)
     box = layout.box()
-    box.label(text="Character updater", icon='FILE_REFRESH')
-    props = scene.uc_updated_character
+    row = box.row()
+    row.label(text="Character updater", icon='FILE_REFRESH')
+    
+    wm = context.window_manager
 
-    if is_collection_exist("PERSONAJES"):
-        box.prop(props, "collection_enum", text="Old")
-    else:
-        box.label(text="Personajes deben estar dentro de PERSONAJES")
+    row.prop(wm, "show_characterUpdater", toggle=True, icon="HIDE_OFF" if wm.show_characterUpdater else "HIDE_ON")
+    if wm.show_characterUpdater:
+        props = context.window_manager.uc_updated_character
 
-    box.prop(props, "new_collection", text="New")
-    if props.new_collection:
-        box.prop(props, "name_collection", text="Select")
-    box.operator("mesh.append_and_replace", icon="FILE_REFRESH")
+        if is_collection_exist("PERSONAJES"):
+            box.prop(props, "collection_enum", text="Old")
+        else:
+            box.label(text="Personajes deben estar dentro de PERSONAJES")
+
+        box.prop(props, "new_collection", text="New")
+        if props.new_collection:
+            box.prop(props, "name_collection", text="Select")
+        box.operator("mesh.append_and_replace", icon="FILE_REFRESH")
 
 class RENDER_PT_QuickSetupPanel(bpy.types.Panel):
     bl_label = "Layout Companion!"

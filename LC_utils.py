@@ -63,7 +63,6 @@ def file_exists_in_blend_directory(filename: str) -> bool:
     target_path = os.path.join(blend_dir, filename)
     return os.path.exists(target_path)
 
-
 def get_icon_by_vertices(vertices):
     if vertices > 100000:
         return "STRIP_COLOR_01", "Geometria con demasiados poligonos, altamente recomendable NO usar"
@@ -75,3 +74,4 @@ def get_icon_by_vertices(vertices):
         return "STRIP_COLOR_04","Geometria Perfecta!"
     else:
         return "STRIP_COLOR_05","Geometria Perfecta!"
+    

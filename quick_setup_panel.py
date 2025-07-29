@@ -4,7 +4,9 @@ from .LC_utils import (
     is_any_object_visible_in_render,
     is_collection_exist,
     get_icon_by_vertices,
-    file_exists_in_blend_directory
+    file_exists_in_blend_directory,
+    get_icon_by_leght,
+    check_emitters_in_collection
 )
 
 
@@ -24,7 +26,8 @@ def draw_layout_status_content(layout, context):
     row = layout.row()
     row.operator("render.quick_setup", text="Setup layout", icon='SETTINGS')
     row.prop(scene, "show_render_status", toggle=True, icon="HIDE_OFF" if scene.show_render_status else "HIDE_ON")
-
+    
+    ##recuedo  COLOR_01 ES ROJO 
     if scene.show_render_status:
         icon = 'STRIP_COLOR_01' if not bpy.app.version >= (4, 5, 0) else 'STRIP_COLOR_04'
         layout.label(text="Blender version", icon=icon)
@@ -45,6 +48,10 @@ def draw_layout_status_content(layout, context):
         isVisibleOnRender = is_any_object_visible_in_render("NOTAS_LAYOUT")
         iconRender = 'STRIP_COLOR_04' if not isVisibleOnRender else 'STRIP_COLOR_01'
         layout.label(text="Visible layout notes", icon=iconRender)
+        
+        chacheParticles = check_emitters_in_collection()
+        iconParticle = 'STRIP_COLOR_04' if not chacheParticles else 'STRIP_COLOR_01'
+        layout.label(text="Cache Particles", icon=iconParticle)
 
         hasRenderNotes = file_exists_in_blend_directory("NOTAS RENDER.txt")
         iconLayoutNote = 'STRIP_COLOR_09' if not hasRenderNotes else 'STRIP_COLOR_04'
@@ -53,7 +60,15 @@ def draw_layout_status_content(layout, context):
         fps = scene.render.fps
         total_frames = scene.frame_end - (scene.frame_start - 1)
         seconds = total_frames / fps
-        layout.label(text= f"{seconds:.2f} Seconds", icon="TIME")
+       
+        row = layout.row()
+        icon, info = get_icon_by_leght(total_frames)
+       
+        row.prop(scene, "show_leght_info", text="", icon=icon)
+        if scene.show_leght_info:
+            layout.row().label(text=info)
+            
+        row.label(text= f"{seconds:.2f} Seconds", icon="TIME")
 
 def draw_props_settings_content(layout, context):
     scene = context.scene
@@ -127,6 +142,11 @@ def draw_character_settings_content(layout, context):
             box.prop(props, "name_collection", text="Select")
         box.operator("mesh.append_and_replace", icon="FILE_REFRESH")
 
+def draw_extras_content(layout, context):
+     scene = context.scene
+     layout.label(text="Particles", icon='PARTICLES')
+     layout.operator("ot.blend_extras", text="Bake all particles", icon='FOLDER_REDIRECT')
+    
 class RENDER_PT_QuickSetupPanel(bpy.types.Panel):
     bl_label = "Layout Companion!"
     bl_idname = "RENDER_PT_quick_setup_npanel"
@@ -142,7 +162,7 @@ class RENDER_PT_QuickSetupPanel(bpy.types.Panel):
         draw_foldable_section(layout, "LAYOUT STATUS", "BLENDER", "render_settings_fold", draw_layout_status_content, context)
         draw_foldable_section(layout, "PROPS SETTINGS", "MESH_DATA", "props_settings_fold", draw_props_settings_content, context)
         draw_foldable_section(layout, "CHARACTER SETTINGS", "OUTLINER_OB_ARMATURE", "characters_fold", draw_character_settings_content, context)
-
+        draw_foldable_section(layout, "EXTRAS", "POINTCLOUD_DATA", "extras_fold", draw_extras_content, context)
 
 @addon_updater_ops.make_annotations
 class RENDER_PT_UpdaterPreferences(bpy.types.AddonPreferences):

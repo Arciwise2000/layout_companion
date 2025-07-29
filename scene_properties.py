@@ -9,6 +9,10 @@ bpy.types.Scene.show_render_status = bpy.props.BoolProperty(
     name="",
     default=True
 )
+bpy.types.Scene.show_leght_info = bpy.props.BoolProperty(
+    name="",
+    default=True
+)
 bpy.types.Scene.import_settings_fold = bpy.props.BoolProperty(
     name="Show Render Settings",
     default=False
@@ -32,6 +36,10 @@ bpy.types.Scene.characters_fold = bpy.props.BoolProperty(
 )
 bpy.types.Scene.show_character_list = bpy.props.BoolProperty(
     name="",
+    default=False
+)
+bpy.types.Scene.extras_fold = bpy.props.BoolProperty(
+    name="Extras Settings",
     default=False
 )
 bpy.types.Scene.remove_empties = bpy.props.BoolProperty(

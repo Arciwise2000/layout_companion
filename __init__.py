@@ -1,9 +1,10 @@
 
 bl_info = {
     "name": "Layout Companion",
-    "version": (1, 6, 1),
+    "version": (1, 6, 2),
     "author": "Arciwise",
     "blender": (4, 5, 0),
+    "location": "View3D > Sidebar > Layout Companion",
     "description": "Tools for Layouters",
     "category": "Animation",
 }
@@ -12,6 +13,7 @@ import bpy
 
 from . import scene_properties
 from . import addon_updater_ops
+
 from .operators import update_character
 from .operators.mesh_analyze import MESH_OT_AnalyzeMesh
 from .operators.quick_render_setup import RENDER_OT_QuickSetup
@@ -20,6 +22,8 @@ from .operators.object_fix_materials import MESH_OT_FixMaterials, MESH_OT_Emissi
 from .operators.character_apply_scale import CHARACTER_OT_ApplyScaleToSelected
 from .operators.update_character import UC_Operator_Updated_Character, UC_Updated_Character
 from .operators.object_add_decimate import OBJECT_OT_AddDecimateModifier
+from .operators.ot_extras import OT_EXTRAS
+
 from .quick_setup_panel import RENDER_PT_QuickSetupPanel, RENDER_PT_UpdaterPreferences
 from .characters_ui_list import CHARACTERS_UL_List
 from .character_list_item import CharacterListItem
@@ -41,6 +45,7 @@ def register():
     bpy.utils.register_class(MESH_OT_EmissionView)
     bpy.utils.register_class(CHARACTER_OT_ApplyScaleToSelected)
     bpy.utils.register_class(OBJECT_OT_AddDecimateModifier)
+    bpy.utils.register_class(OT_EXTRAS)
     
     bpy.utils.register_class(UC_Updated_Character) 
     update_character.register_props()
@@ -67,6 +72,7 @@ def unregister():
     bpy.utils.unregister_class(MESH_OT_EmissionView)
     bpy.utils.unregister_class(CHARACTER_OT_ApplyScaleToSelected)
     bpy.utils.unregister_class(OBJECT_OT_AddDecimateModifier)
+    bpy.utils.unregister_class(OT_EXTRAS)
         
     update_character.unregister_props()
     bpy.utils.unregister_class(UC_Updated_Character)

@@ -74,4 +74,34 @@ def get_icon_by_vertices(vertices):
         return "STRIP_COLOR_04","Geometria Perfecta!"
     else:
         return "STRIP_COLOR_05","Geometria Perfecta!"
-    
+
+def get_icon_by_leght(frames):
+    if frames >= 960:
+        return "STRIP_COLOR_01", "Larga duracion! Recomendable dividir"
+    elif frames > 360:
+        return "STRIP_COLOR_04", "Excelente duracion!"
+    elif frames > 240:
+        return "STRIP_COLOR_03","Corta duracion! Recomendable extender"
+    else:
+        return "STRIP_COLOR_01","Demasiado corto! Obligatorio extender"
+
+def check_emitters_in_collection():
+    collection = is_collection_exist("EFECTOS")
+   
+    if not collection:
+        return False
+
+    for obj in collection.objects:
+        for mod in obj.modifiers:
+            if mod.type == 'PARTICLE_SYSTEM':
+                psys = mod.particle_system
+                settings = psys.settings
+
+                if settings.type != 'EMITTER':
+                    continue
+
+                cache = psys.point_cache
+                if not cache.is_baked:
+                    return True
+                
+    return False

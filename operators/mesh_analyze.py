@@ -40,7 +40,6 @@ class MESH_OT_AnalyzeMesh(bpy.types.Operator):
                 return collect_meshes_from_empty(parent_empty)
 
         elif selected_obj.type == 'MESH':
-            # Verifica si el objeto pertenece a una colección y recolecta otros objetos mesh
             if selected_obj.users_collection:
                 target_col = selected_obj.users_collection[0]
                 meshes = []

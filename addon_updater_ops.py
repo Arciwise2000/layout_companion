@@ -109,7 +109,7 @@ def get_user_preferences(context=None):
     if not context:
         context = bpy.context
 
-    addon_name = "LayoutCompanion" 
+    addon_name = "layout_companion-main" 
 
     prefs_container = getattr(context, "preferences", None)
     if not prefs_container:

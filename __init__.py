@@ -1,7 +1,7 @@
 
 bl_info = {
     "name": "Layout Companion",
-    "version": (1, 6, 2),
+    "version": (1, 6, 3),
     "author": "Arciwise",
     "blender": (4, 5, 0),
     "location": "View3D > Sidebar > Layout Companion",

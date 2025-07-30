@@ -1,7 +1,7 @@
 
 bl_info = {
     "name": "Layout Companion",
-    "version": (1, 6, 3),
+    "version": (1, 6, 4),
     "author": "Arciwise",
     "blender": (4, 5, 0),
     "location": "View3D > Sidebar > Layout Companion",
@@ -47,10 +47,14 @@ def register():
     bpy.utils.register_class(OBJECT_OT_AddDecimateModifier)
     bpy.utils.register_class(OT_EXTRAS)
     
-    bpy.utils.register_class(UC_Updated_Character) 
-    update_character.register_props()
-    bpy.utils.register_class(UC_Operator_Updated_Character)
+    from .operators.camera_composition import register
+    register()
     
+    bpy.utils.register_class(UC_Updated_Character) 
+    
+    update_character.register_props()
+    
+    bpy.utils.register_class(UC_Operator_Updated_Character)
     bpy.utils.register_class(RENDER_PT_QuickSetupPanel)
     
     bpy.types.Scene.character_list_items = bpy.props.CollectionProperty(type=CharacterListItem)
@@ -73,8 +77,12 @@ def unregister():
     bpy.utils.unregister_class(CHARACTER_OT_ApplyScaleToSelected)
     bpy.utils.unregister_class(OBJECT_OT_AddDecimateModifier)
     bpy.utils.unregister_class(OT_EXTRAS)
-        
+    
+    from .operators.camera_composition import unregister
+    unregister()
+    
     update_character.unregister_props()
+    
     bpy.utils.unregister_class(UC_Updated_Character)
     bpy.utils.unregister_class(UC_Operator_Updated_Character)
     

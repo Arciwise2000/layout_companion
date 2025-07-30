@@ -144,9 +144,18 @@ def draw_character_settings_content(layout, context):
 
 def draw_extras_content(layout, context):
      scene = context.scene
+     settings = scene.camera_frame_settings
+     
      layout.label(text="Particles", icon='PARTICLES')
      layout.operator("ot.blend_extras", text="Bake all particles", icon='FOLDER_REDIRECT')
-    
+     
+     box = layout.box()
+     box.label(text="Camera", icon='CAMERA_DATA')
+     row = box.row()
+     row.prop(settings, "enabled", toggle=True, icon="RESTRICT_VIEW_OFF" if settings.enabled else "RESTRICT_VIEW_ON")
+     row.prop(settings, "color", text="")
+     row.prop(settings, "width", text="")
+     
 class RENDER_PT_QuickSetupPanel(bpy.types.Panel):
     bl_label = "Layout Companion!"
     bl_idname = "RENDER_PT_quick_setup_npanel"

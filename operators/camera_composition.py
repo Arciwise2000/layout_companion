@@ -25,9 +25,9 @@ class CameraFrameSettings(bpy.types.PropertyGroup):
         description="Color de las líneas guía"
     )
     width: FloatProperty(
-        name="Color",
-        min=0.1,
-        max=3.0,
+        name="Width",
+        min=0.2,
+        max=3.5,
         default= 1,
         description="Grosor de las líneas guía"
     )
@@ -86,7 +86,7 @@ def draw_camera_frame_callback():
 
     base_offset_x = (frame['max_x'] - frame['min_x']) * -0.04 #sides
     base_offset_y = (frame['max_y'] - frame['min_y']) * -0.05 #down
-    top_offset_y  = (frame['max_y'] - frame['min_y']) * -0.08 #up
+    top_offset_y  = (frame['max_y'] - frame['min_y']) * -0.1 #up
 
     line_thickness = settings.width
 

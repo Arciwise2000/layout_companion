@@ -1,6 +1,6 @@
 import bpy
 
-from ..LC_utils import is_collection_exist
+from ..scene_utils import is_collection_exist
 
 class OT_EXTRAS(bpy.types.Operator):
     bl_idname = "ot.blend_extras"

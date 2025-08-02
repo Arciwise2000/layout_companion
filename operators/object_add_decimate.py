@@ -1,5 +1,5 @@
 import bpy
-from ..LC_utils import add_decimate_modifier  # Import correcto si usas paquetes
+from ..scene_utils import add_decimate_modifier  # Import correcto si usas paquetes
 
 class OBJECT_OT_AddDecimateModifier(bpy.types.Operator):
     bl_idname = "object.add_decimate_modifier"

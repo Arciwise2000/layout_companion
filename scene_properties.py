@@ -4,7 +4,7 @@ from bpy.props import BoolProperty
 
 # Scene properties
 bpy.types.Scene.render_settings_fold = BoolProperty(
-    name="Show Render Settings",
+    name="Show render settings",
     default=False
 )
 bpy.types.Scene.show_render_status = BoolProperty(
@@ -16,24 +16,24 @@ bpy.types.Scene.show_leght_info = BoolProperty(
     default=True
 )
 bpy.types.Scene.import_settings_fold = BoolProperty(
-    name="Show Render Settings",
+    name="Show import settings",
     default=False
 )
 bpy.types.Scene.props_settings_fold = BoolProperty(
-    name="Show Prop Settings",
+    name="Show prop settings",
     default=False
 )
 bpy.types.Scene.show_advance_prop_settings = BoolProperty(
-    name="Prop Cleaner Settings",
+    name="Prop cleaner settings",
     default=False
 )
 
 bpy.types.Scene.show_prop_helpInfo = BoolProperty(
-    name="Check Prop Verts. Status",
+    name="Check prop vertices status",
     default=False
 )
 bpy.types.Scene.characters_fold = BoolProperty(
-    name="Characters Settings",
+    name="Characters settings",
     default=False
 )
 bpy.types.Scene.show_character_list = BoolProperty(
@@ -41,27 +41,43 @@ bpy.types.Scene.show_character_list = BoolProperty(
     default=False
 )
 bpy.types.Scene.extras_fold = BoolProperty(
-    name="Extras Settings",
+    name="Extras settings",
     default=False
 )
 bpy.types.Scene.remove_empties = BoolProperty(
-    name="Remove Emptys",
-    description="Elimina todos los emptys",
+    name="Remove emptys",
+    description="Elimina todos los emptys y deja solo los objetos",
     default=True
 )
 bpy.types.Scene.remove_doubles = BoolProperty(
-    name="Remove Double Vertices",
+    name="Remove double vertices",
     description="Combina los vertices duplicados",
     default=True
 )
 bpy.types.Scene.add_in_collection = BoolProperty(
-    name="Create Collection",
+    name="Create collection",
     description="Anida las partes del prop a un nuevo Collection",
     default=True
 )
 bpy.types.Scene.mergeObjects = BoolProperty(
-    name="Merge Meshes",
-    description="Junta todas las partes en una sola",
+    name="Merge meshes",
+    description="Junta todos los objetos en una solo",
+    default=False
+)
+bpy.types.Scene.only_selected_objects = BoolProperty(
+    name="Only selected objects",
+    description="Solo limpia los objetos seleccionados",
+    default=False
+)
+
+bpy.types.Scene.resource_import_origin_cursor = BoolProperty(
+    name="",
+    description="Importa el recurso en el 3D Cursor",
+    default=True
+)
+bpy.types.Scene.resource_import_origin_camera = BoolProperty(
+    name="",
+    description="Importa el recurso adelante de la camara",
     default=False
 )
 

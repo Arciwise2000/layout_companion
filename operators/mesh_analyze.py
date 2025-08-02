@@ -18,6 +18,7 @@ class MESH_OT_AnalyzeMesh(bpy.types.Operator):
     
     def get_all_meshes(self, context):
         selected_obj = context.active_object
+        scene = context.scene
 
         def collect_meshes_from_empty(obj):
             meshes = []
@@ -34,34 +35,46 @@ class MESH_OT_AnalyzeMesh(bpy.types.Operator):
             collect(obj)
             return meshes
 
+        # Si tiene un EMPTY como parent
         if selected_obj.parent and selected_obj.parent.type == 'EMPTY':
             parent_empty = self.find_top_parent(selected_obj)
             if parent_empty:
                 return collect_meshes_from_empty(parent_empty)
 
-        elif selected_obj.type == 'MESH':
-            if selected_obj.users_collection:
-                target_col = selected_obj.users_collection[0]
-                meshes = []
-                for obj in target_col.objects:
-                    if obj.type == 'MESH':
-                        meshes.append({
-                            'object': obj,
-                            'matrix_world': obj.matrix_world.copy(),
-                            'name': obj.name,
-                            'original_collections': list(obj.users_collection)
-                        })
-                return meshes
+        # Si está activado el modo "solo objetos seleccionados"
+        if scene.only_selected_objects:
+            selected_meshes = []
+            for obj in context.selected_objects:
+                if obj.type == 'MESH':
+                    selected_meshes.append({
+                        'object': obj,
+                        'matrix_world': obj.matrix_world.copy(),
+                        'name': obj.name,
+                        'original_collections': list(obj.users_collection)
+                    })
+            return selected_meshes
 
-            # Si no tiene colección, solo usa el objeto actual
-            return [{
-                'object': selected_obj,
-                'matrix_world': selected_obj.matrix_world.copy(),
-                'name': selected_obj.name,
-                'original_collections': list(selected_obj.users_collection)
-            }]
+        # Si no está activado el modo y no tiene EMPTY
+        elif selected_obj.type == 'MESH' and selected_obj.users_collection:
+            target_col = selected_obj.users_collection[0]
+            meshes = []
+            for obj in target_col.objects:
+                if obj.type == 'MESH':
+                    meshes.append({
+                        'object': obj,
+                        'matrix_world': obj.matrix_world.copy(),
+                        'name': obj.name,
+                        'original_collections': list(obj.users_collection)
+                    })
+            return meshes
 
-        return []
+        # Fallback: solo el objeto actual
+        return [{
+            'object': selected_obj,
+            'matrix_world': selected_obj.matrix_world.copy(),
+            'name': selected_obj.name,
+            'original_collections': list(selected_obj.users_collection)
+        }]
 
     def clean_mesh_bmesh(self, obj, remove_doubles=True):
         mesh = obj.data

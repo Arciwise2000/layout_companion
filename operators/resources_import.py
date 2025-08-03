@@ -53,7 +53,7 @@ def enum_previews_from_images(self, context):
 def get_blend_and_collection(selected_name):
     name_base = os.path.splitext(selected_name)[0]
     blend_path = os.path.join(addon_root, "resources", name_base + ".blend")
-    collection_name = name_base.capitalize()
+    collection_name = name_base
     return blend_path, collection_name
 
 
@@ -69,6 +69,8 @@ def get_next_available_name(base="Collection"):
 
 def import_selected_collection(selected_name):
     blend_path, collection_name = get_blend_and_collection(selected_name)
+    scene = bpy.context.scene
+    print(blend_path)
     if not os.path.exists(blend_path):
         print(f"No se encontró el archivo: {blend_path}")
         return
@@ -76,23 +78,27 @@ def import_selected_collection(selected_name):
     with bpy.data.libraries.load(blend_path, link=False) as (data_from, data_to):
         if collection_name in data_from.collections:
             data_to.collections = [collection_name]
-
-    if bpy.context.scene.resource_import_origin_camera:
+                        
+    if scene.resource_import_origin_camera:
         bpy.ops.resource.place_origin(origin_type="camera")
-
+    else:
+        bpy.ops.resource.place_origin(origin_type="cursor")
         
     for coll in data_to.collections:
         if coll and coll.name == collection_name:
             new_name = get_next_available_name(collection_name)
             coll.name = new_name
+            print("2")
+            
+        print("3")
             
         bpy.context.view_layer.update()
         
         for obj in [o for o in coll.objects if o.parent is None]:
-            obj.location = bpy.context.scene.cursor.location
+            obj.location = scene.cursor.location
+            print("4")
 
-
-        bpy.context.scene.collection.children.link(coll)
+        scene.collection.children.link(coll)
         print(f"Importado: {collection_name}")
         break
 
@@ -103,6 +109,7 @@ class RESOURCE_OT_ImportSelected(Operator):
 
     def execute(self, context):
         selected_name = context.window_manager.collection_preview_enum
+        print("-1")
         import_selected_collection(selected_name)
         return {'FINISHED'}
 

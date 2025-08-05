@@ -1,7 +1,7 @@
 
 bl_info = {
     "name": "Layout Companion",
-    "version": (1, 7, 1),
+    "version": (1, 7, 2),
     "author": "Arciwise",
     "blender": (4, 5, 0),
     "location": "View3D > Sidebar > Layout Companion",
@@ -23,7 +23,7 @@ from .operators.cloud_character_list import CLOUD_OT_GetNameList,CharacterListIt
 from .operators.object_fix_materials import MESH_OT_FixMaterials, MESH_OT_EmissionView
 from .operators.character_apply_scale import CHARACTER_OT_ApplyScaleToSelected
 from .operators.update_character import UC_Operator_Updated_Character, UC_Updated_Character
-from .operators.object_add_decimate import OBJECT_OT_AddDecimateModifier
+from .operators.object_add_modifiers import OBJECT_OT_AddDecimateModifier, OBJECT_OT_AddSmoothByAngle
 from .operators.ot_extras import OT_EXTRAS
 
 from .ui import RENDER_PT_QuickSetupPanel,RENDER_PT_About, RENDER_PT_Resources, RENDER_PT_UpdaterPreferences
@@ -46,6 +46,7 @@ def register():
     bpy.utils.register_class(MESH_OT_EmissionView)
     bpy.utils.register_class(CHARACTER_OT_ApplyScaleToSelected)
     bpy.utils.register_class(OBJECT_OT_AddDecimateModifier)
+    bpy.utils.register_class(OBJECT_OT_AddSmoothByAngle)
     bpy.utils.register_class(OT_EXTRAS)
     
     
@@ -95,6 +96,7 @@ def unregister():
     bpy.utils.unregister_class(MESH_OT_EmissionView)
     bpy.utils.unregister_class(CHARACTER_OT_ApplyScaleToSelected)
     bpy.utils.unregister_class(OBJECT_OT_AddDecimateModifier)
+    bpy.utils.unregister_class(OBJECT_OT_AddSmoothByAngle)
     bpy.utils.unregister_class(OT_EXTRAS)
     
     

@@ -140,26 +140,6 @@ def draw_camera_frame_callback():
     shader.bind()
     shader.uniform_float("color", settings.color)
     batch.draw(shader)
-
-    
-    # pa luego
-    # if settings.highlight_top:
-    #     top_line_vertices = [
-    #         (frame['max_x'] + base_offset_x, frame['max_y'] + top_offset_y),
-    #         (frame['min_x'] - base_offset_x, frame['max_y'] + top_offset_y)
-    #     ]
-        
-    #     top_line_batch = batch_for_shader(shader, 'LINES', {"pos": top_line_vertices})
-    #     highlight_color = (
-    #         min(settings.color[0] * 1.5, 1.0),
-    #         min(settings.color[1] * 1.5, 1.0),
-    #         min(settings.color[2] * 1.5, 1.0),
-    #         min(settings.color[3] * 1.2, 1.0)
-    #     )
-    #     shader.uniform_float("color", highlight_color)
-    #     gpu.state.line_width_set(3.0)
-    #     top_line_batch.draw(shader)
-    #     gpu.state.line_width_set(1.0)
     
 
 def register_draw_handler():
@@ -211,8 +191,8 @@ def register():
                 register_draw_handler()
 
 def unregister():
+    
     unregister_handlers()
-
     unregister_draw_handler()
     
     if hasattr(bpy.types.Scene, "camera_frame_settings"):

@@ -1,5 +1,6 @@
+from ctypes import alignment
 import bpy
-import os
+import time
 from . import bl_info
 from . import addon_updater_ops
 from .scene_utils import (
@@ -10,7 +11,7 @@ from .scene_utils import (
     get_icon_by_leght,
     check_emitters_in_collection
 )
-from .operators.resources_import import RESOURCE_OT_ImportSelected,enum_previews_from_images
+
 
 def draw_foldable_section(layout, title, icon, fold_prop_name, draw_content_fn, context):
     scene = context.scene
@@ -23,6 +24,12 @@ def draw_foldable_section(layout, title, icon, fold_prop_name, draw_content_fn, 
         inner = box.box()
         draw_content_fn(inner, context)
 
+def draw_informative_box(col,info,active):
+    if active:
+        box = col.box()
+        box.label(text=info, icon="INFO_LARGE")
+        col.separator()
+
 def draw_layout_status_content(layout, context):
     scene = context.scene
     row = layout.row()
@@ -31,36 +38,49 @@ def draw_layout_status_content(layout, context):
     
     col = layout.column(align=True)
 
-    ##recuedo  COLOR_01 ES ROJO 
+    ##recuerdo  COLOR_01 ES ROJO 
     if scene.show_render_status:
-        icon = 'STRIP_COLOR_01' if not bpy.app.version >= (4, 5, 0) else 'STRIP_COLOR_04'
-        col.label(text="Blender version", icon=icon)
-
+        
+        icon_bd_version = 'STRIP_COLOR_01' if not bpy.app.version >= (4, 5, 0) else 'STRIP_COLOR_04'
+        col.label(text="Blender version", icon=icon_bd_version)
+        
+        ##-----------------------
         scene_count = len(bpy.data.scenes)
-        icon = 'STRIP_COLOR_01' if scene_count > 1 else 'STRIP_COLOR_04'
-        col.label(text="One scene", icon=icon)
-
+        exceedScenes = scene_count > 1
+        icon_scene_count = 'STRIP_COLOR_04' if not exceedScenes else 'STRIP_COLOR_01'
+            
+        col.label(text="One scene", icon=icon_scene_count)
+        draw_informative_box(col,"Hay una escena extra en el Blend. Eliminalo para evitar problemas de render!",exceedScenes)
+        ##-----------------------
         cameraCollectionAvaible = is_collection_exist("CAMARA")
-        dofText = "DOF in camera collection"
+        dof_text = "DOF in camera collection"
         if not cameraCollectionAvaible:
             col.label(text="'CAMARA' Collection in scene", icon="STRIP_COLOR_01")
+            draw_informative_box(col,"No existe la collection 'CAMARA'. Crea o renombra algun collection con ese nombre",True)
         elif cameraCollectionAvaible.objects.get("DOF"):
-            col.label(text=dofText, icon="STRIP_COLOR_04")
+            col.label(text=dof_text, icon="STRIP_COLOR_04")
         else:
-            col.label(text=dofText, icon="STRIP_COLOR_01")
-
+            col.label(text=dof_text, icon="STRIP_COLOR_01")
+            draw_informative_box(col,"No existe el empty DOF dentro del collection 'CAMARA'", True)
+        ##-----------------------
         isVisibleOnRender = is_any_object_visible_in_render("NOTAS_LAYOUT")
-        iconRender = 'STRIP_COLOR_04' if not isVisibleOnRender else 'STRIP_COLOR_01'
-        col.label(text="Visible layout notes", icon=iconRender)
-        
+        icon_render = 'STRIP_COLOR_04' if not isVisibleOnRender else 'STRIP_COLOR_01'
+        col.label(text="Visible layout notes", icon=icon_render)
+        draw_informative_box(col,"Hay objetos con visibilidad en render dentro de 'NOTAS LAYOUT'. Apagalas!",isVisibleOnRender)
+        ##-----------------------
         chacheParticles = check_emitters_in_collection()
-        iconParticle = 'STRIP_COLOR_04' if not chacheParticles else 'STRIP_COLOR_01'
-        col.label(text="Cache particles", icon=iconParticle)
-
+        icon_particle = 'STRIP_COLOR_04' if not chacheParticles else 'STRIP_COLOR_01'
+        col.label(text="Cache particles", icon=icon_particle)
+        draw_informative_box(col,"Existen particulas sin bakear! Usa 'bake all particles' o bakea las particulas faltantes",chacheParticles)
+        ##-----------------------
+        icon_rsc_pack = 'STRIP_COLOR_01' if not bpy.data.use_autopack else 'STRIP_COLOR_04'
+        col.label(text="Automatically pack resource", icon=icon_rsc_pack)
+        draw_informative_box(col,"Las imagenes no se guardaran con tu blend! Activa 'Automatically pack resource' o pulsa el boton 'Setup Layout'",not bpy.data.use_autopack)
+        ##-----------------------
         hasRenderNotes = file_exists_in_blend_directory("NOTAS RENDER.txt")
-        iconLayoutNote = 'STRIP_COLOR_09' if not hasRenderNotes else 'STRIP_COLOR_04'
-        col.label(text="Render notes", icon=iconLayoutNote)
-        
+        icon_layout_note = 'STRIP_COLOR_09' if not hasRenderNotes else 'STRIP_COLOR_04'
+        col.label(text="Render notes", icon=icon_layout_note)
+
         fps = scene.render.fps
         total_frames = scene.frame_end - (scene.frame_start - 1)
         seconds = total_frames / fps
@@ -73,6 +93,14 @@ def draw_layout_status_content(layout, context):
             layout.row().label(text=info)
             
         row.label(text= f"{seconds:.2f} seconds", icon="TIME")
+        
+        ##elapsed = int(time.time() - scene.session_start_time)
+        ##hours = elapsed // 3600
+        ##minutes = (elapsed % 3600) // 60
+        ##row = layout.row(alignment="CENTER")
+        ##row.label(text="Blender time:")
+        ##row.label(text=f"{hours:02d}:{minutes:02d} (hh:mm)")
+
 
 def draw_props_settings_content(layout, context):
     scene = context.scene
@@ -107,7 +135,8 @@ def draw_props_settings_content(layout, context):
     row.operator("mesh.emission_view", icon="HIDE_OFF")
     layout.separator()
     layout.operator("object.add_decimate_modifier", text="Add decimate", icon="MOD_DECIM")
-
+    layout.operator("object.add_smooth_by_angle", text="Add Smooth by angle", icon="OUTLINER_OB_META")
+    
 def draw_character_settings_content(layout, context):
     scene = context.scene
     
@@ -164,6 +193,9 @@ def draw_extras_content(layout, context):
      row.prop(settings, "color", text="")
      row.prop(settings, "width", text="")
      
+     
+##---------------------PANELS----------------------------##
+
 class RENDER_PT_QuickSetupPanel(bpy.types.Panel):
     bl_label = "Layout Companion!"
     bl_idname = "RENDER_PT_quick_setup_npanel"
@@ -195,8 +227,9 @@ class RENDER_PT_Resources(bpy.types.Panel):
         scene = context.scene
         layout = self.layout
         wm = context.window_manager
-
-        layout.template_icon_view(wm, "collection_preview_enum")
+        
+        box = layout.box()
+        box.template_icon_view(wm, "collection_preview_enum")
         if wm.collection_preview_enum:
             box = layout.box()
             row = box.row(align=True)
@@ -210,7 +243,7 @@ class RENDER_PT_Resources(bpy.types.Panel):
                 row.label(text="", icon="PIVOT_CURSOR")
                 row.operator("resource.place_origin", text="", icon="CAMERA_DATA").origin_type = "camera"
         else:
-            layout.label(text="No hay previews disponibles")
+            box.label(text="No hay previews disponibles")
 
 
 class RENDER_PT_About(bpy.types.Panel):
@@ -229,10 +262,6 @@ class RENDER_PT_About(bpy.types.Panel):
         version_str = ".".join(map(str, version))
         layout.label(text="Version: " + version_str)
         layout.operator("wm.url_open", text="Visit GitHub").url = "https://github.com/Arciwise2000/layout_companion"
-
-
-
-
 
    
 @addon_updater_ops.make_annotations
@@ -262,3 +291,5 @@ class RENDER_PT_UpdaterPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "layouter_name")
         layout.separator()
         addon_updater_ops.update_settings_ui(self, context)
+        
+        

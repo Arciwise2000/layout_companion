@@ -4,9 +4,10 @@ import bpy.utils.previews
 from bpy.types import Operator
 from bpy.props import EnumProperty
 from mathutils import Vector
+import dropbox
 
 # Diccionario global de previews
-preview_collections = {}
+preview_props = {}
 addon_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 
@@ -22,7 +23,7 @@ def enum_previews_from_images(self, context):
         pcoll = bpy.utils.previews.new()
         setattr(pcoll, "my_previews_dir", "")
         setattr(pcoll, "my_previews", [])
-        preview_collections["main"] = pcoll
+        preview_props["main"] = pcoll
         
     if not pcoll.my_previews or pcoll.my_previews_dir != directory:
         enum_items.clear()
@@ -59,7 +60,7 @@ def get_next_available_name(base="Collection"):
 def import_selected_collection(selected_name):
     blend_path, collection_name = get_blend_and_collection(selected_name)
     scene = bpy.context.scene
-    print(blend_path)
+    
     if not os.path.exists(blend_path):
         print(f"No se encontró el archivo: {blend_path}")
         return
@@ -91,45 +92,12 @@ def import_selected_collection(selected_name):
         print(f"Importado: {collection_name}")
         break
 
-class RESOURCE_OT_ImportSelected(Operator):
-    bl_idname = "resource.import_selected"
+class PROP_OT_ImportSelected(Operator):
+    bl_idname = "prop.import_selected"
     bl_label = "Import"
-    bl_description = "Importa el recurso seleccionado"
+    bl_description = "Importa el prop seleccionado"
 
     def execute(self, context):
-        selected_name = context.window_manager.collection_preview_enum
-        print("-1")
-        import_selected_collection(selected_name)
-        return {'FINISHED'}
-
-
-class RESOURCE_OT_place_origin(bpy.types.Operator):
-    bl_idname = "resource.place_origin"
-    bl_label = "Place Origin"
-    bl_description = "Selecciona el tipo de origen en la que se posicionara el recurso Camera = Al frente de la camara, Cursor = En donde este colocado el 3D_Cursor"
-    origin_type: bpy.props.StringProperty()
-    
-    def execute(self, context):
-        scene = bpy.context.scene
-        
-        if self.origin_type == "cursor":
-            target_location = scene.cursor.location.copy()
-            scene.resource_import_origin_cursor = True
-            scene.resource_import_origin_camera = False
-            
-        elif self.origin_type == "camera":
-            cam = context.scene.camera
-            if not cam:
-                self.report({'WARNING'}, "No hay cámara activa en la escena")
-                return {'CANCELLED'}
-            
-            forward_vec = cam.matrix_world.to_quaternion() @ Vector((0, 0, -2))
-            target_location = cam.location + forward_vec
-            scene.resource_import_origin_cursor = False
-            scene.resource_import_origin_camera = True
-        else:
-             target_location = scene.cursor.location.copy()
-
-        # Actualiza el cursor 3D para importar en esa posición
-        context.scene.cursor.location = target_location
+        #selected_name = context.window_manager.collection_preview_enum
+        #import_selected_collection(selected_name)
         return {'FINISHED'}

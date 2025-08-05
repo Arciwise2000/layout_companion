@@ -66,7 +66,7 @@ bpy.types.Scene.mergeObjects = BoolProperty(
 )
 bpy.types.Scene.only_selected_objects = BoolProperty(
     name="Only selected objects",
-    description="Solo limpia los objetos seleccionados",
+    description="Solo limpia los objetos seleccionados, en caso contrario limpiara todos los objetos dentro de un empty; o si no tiene empty, del collection",
     default=False
 )
 

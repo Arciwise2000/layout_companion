@@ -18,3 +18,9 @@ Para agilizar ciertas cosas en el area de layout.
 
 
 ![Installprefs](/visuals/install_prefs.png)
+
+
+Como usar layout companion
+======
+
+[![Tutorial](https://img.youtube.com/vi/zKneHVkP6YQ.jpg)](https://youtu.be/zKneHVkP6YQ)

@@ -154,8 +154,12 @@ def draw_character_settings_content(layout, context):
             if scene.character_list_index >= 0 and len(scene.character_list_items) > scene.character_list_index:
                 selected = scene.character_list_items[scene.character_list_index]
                 box.label(text=f"Scale: {selected.scale:.4f}", icon='DOT')
-
+ 
             box.operator("character.apply_scale_to_selected", text="Apply Scale", icon='CON_SIZELIKE')
+            row = box.row(align=True)
+            row.prop(scene,"lock_character_loc",icon="LOCKED")
+            row.prop(scene,"lock_character_rot",icon="LOCKED")
+            row.prop(scene,"lock_character_scale",icon="LOCKED")
 
     box = layout.box()
     row = box.row()

@@ -40,6 +40,22 @@ bpy.types.Scene.show_character_list = BoolProperty(
     name="",
     default=False
 )
+bpy.types.Scene.lock_character_loc = BoolProperty(
+    name="Loc",
+    description="Bloque los ejes de locacion del personaje seleccionado",
+    default=True
+)
+bpy.types.Scene.lock_character_rot = BoolProperty(
+    name="Rot",
+    description="Bloque los ejes de rotacion del personaje seleccionado",
+    default=True
+)
+bpy.types.Scene.lock_character_scale = BoolProperty(
+    name="Scale",
+    description="Bloque los ejes de escala del personaje seleccionado",
+    default=True
+)
+
 bpy.types.Scene.extras_fold = BoolProperty(
     name="Extras settings",
     default=False

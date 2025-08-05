@@ -21,8 +21,14 @@ class CHARACTER_OT_ApplyScaleToSelected(bpy.types.Operator):
         obj.scale = (selected_character.scale, selected_character.scale, selected_character.scale)
         obj.location = (0, 0, 0)
         obj.rotation_euler = (0, 0, 0)
-        obj.lock_location = (True, True, True)
-        obj.lock_rotation = (True, True, True)
-        obj.lock_scale = (True, True, True)
+        
+        loc = scene.lock_character_loc
+        rot = scene.lock_character_rot
+        scale = scene.lock_character_scale
+
+        obj.lock_location = (loc,loc, loc)
+        obj.lock_rotation = (rot, rot, rot)
+        obj.lock_scale = (scale, scale, scale)
+            
         self.report({'INFO'}, f"Escala {selected_character.scale} aplicada a {obj.name}")
         return {'FINISHED'}

@@ -70,15 +70,26 @@ class MESH_OT_FixMaterials(bpy.types.Operator):
 
                         elif from_node.type == 'TEX_IMAGE':
                             links.new(from_node.outputs['Color'], principled_node.inputs['Base Color'])
-
-                    # Ahora sí, continuar buscando BSDF normalmente
+                            
                     principled = self.find_principled_node(surface_socket)
                     if principled:
                         principled.inputs['Emission Strength'].default_value = 0.0
+                    else:
+                        # Buscar el primer nodo de textura en el árbol de nodos
+                        image_node = next((n for n in nodes if n.type == 'TEX_IMAGE'), None)
+                        
+                        if image_node:
+                            principled_node = nodes.new(type='ShaderNodeBsdfPrincipled')
+                            principled_node.location = image_node.location.x - 200, image_node.location.y
+
+                            links.new(image_node.outputs['Color'], principled_node.inputs['Base Color'])
+                            
+                            links.new(principled_node.outputs['BSDF'], surface_socket)
+
 
         return {'FINISHED'}
     
-_emission_mode_enabled = False  # variable global temporal
+_emission_mode_enabled = False
 
 class MESH_OT_EmissionView(bpy.types.Operator):
     bl_idname = "mesh.emission_view"

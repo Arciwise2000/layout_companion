@@ -2,7 +2,6 @@ import os
 import bpy
 import bpy.utils.previews
 from bpy.types import Operator
-from bpy.props import EnumProperty
 from mathutils import Vector
 
 # Diccionario global de previews
@@ -59,37 +58,44 @@ def get_next_available_name(base="Collection"):
 def import_selected_collection(selected_name):
     blend_path, collection_name = get_blend_and_collection(selected_name)
     scene = bpy.context.scene
-    print(blend_path)
+    
     if not os.path.exists(blend_path):
         print(f"No se encontró el archivo: {blend_path}")
         return
 
+
     with bpy.data.libraries.load(blend_path, link=False) as (data_from, data_to):
+        source_scene_name = data_from.scenes[0] if data_from.scenes else None
+        
         if collection_name in data_from.collections:
             data_to.collections = [collection_name]
-                        
+        else:
+            print(f"No se encontró la colección '{collection_name}' en el archivo externo.")
+            return
+
     if scene.resource_import_origin_camera:
         bpy.ops.resource.place_origin(origin_type="camera")
-    else:
-        bpy.ops.resource.place_origin(origin_type="cursor")
-        
+
+    parent_collection = bpy.data.collections.get(source_scene_name)
+
     for coll in data_to.collections:
         if coll and coll.name == collection_name:
             new_name = get_next_available_name(collection_name)
             coll.name = new_name
-            print("2")
-            
-        print("3")
-            
-        bpy.context.view_layer.update()
-        
-        for obj in [o for o in coll.objects if o.parent is None]:
-            obj.location = scene.cursor.location
-            print("4")
 
-        scene.collection.children.link(coll)
-        print(f"Importado: {collection_name}")
-        break
+            bpy.context.view_layer.update()
+
+            for obj in [o for o in coll.objects if o.parent is None]:
+                obj.location = scene.cursor.location
+
+            if parent_collection:
+                parent_collection.children.link(coll)
+            else:
+                scene.collection.children.link(coll)
+                
+            print(f"Importado '{collection_name}'")
+            
+            break
 
 class RESOURCE_OT_ImportSelected(Operator):
     bl_idname = "resource.import_selected"
@@ -98,7 +104,6 @@ class RESOURCE_OT_ImportSelected(Operator):
 
     def execute(self, context):
         selected_name = context.window_manager.collection_preview_enum
-        print("-1")
         import_selected_collection(selected_name)
         return {'FINISHED'}
 
@@ -106,30 +111,34 @@ class RESOURCE_OT_ImportSelected(Operator):
 class RESOURCE_OT_place_origin(bpy.types.Operator):
     bl_idname = "resource.place_origin"
     bl_label = "Place Origin"
-    bl_description = "Selecciona el tipo de origen en la que se posicionara el recurso Camera = Al frente de la camara, Cursor = En donde este colocado el 3D_Cursor"
+    bl_description = (
+        "Selecciona el tipo de origen en la que se posicionará el recurso.\n"
+        "Camera = Al frente de la cámara\n"
+        "Cursor = En donde esté colocado el 3D Cursor"
+    )
+
     origin_type: bpy.props.StringProperty()
-    
+
     def execute(self, context):
-        scene = bpy.context.scene
-        
-        if self.origin_type == "cursor":
-            target_location = scene.cursor.location.copy()
-            scene.resource_import_origin_cursor = True
-            scene.resource_import_origin_camera = False
-            
-        elif self.origin_type == "camera":
-            cam = context.scene.camera
+        scene = context.scene
+
+        # Si origin_type es "camera", usar posición frente a la cámara
+        if self.origin_type == "camera":
+            cam = scene.camera
             if not cam:
                 self.report({'WARNING'}, "No hay cámara activa en la escena")
                 return {'CANCELLED'}
-            
+
+            cam_world_pos = cam.matrix_world.translation
             forward_vec = cam.matrix_world.to_quaternion() @ Vector((0, 0, -2))
-            target_location = cam.location + forward_vec
+            target_location = cam_world_pos + forward_vec
+
             scene.resource_import_origin_cursor = False
             scene.resource_import_origin_camera = True
         else:
-             target_location = scene.cursor.location.copy()
+            target_location = scene.cursor.location.copy()
+            scene.resource_import_origin_cursor = True
+            scene.resource_import_origin_camera = False
 
-        # Actualiza el cursor 3D para importar en esa posición
-        context.scene.cursor.location = target_location
+        scene.cursor.location = target_location
         return {'FINISHED'}

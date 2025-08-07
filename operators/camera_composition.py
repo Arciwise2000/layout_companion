@@ -79,6 +79,8 @@ def draw_camera_frame_callback():
 
     if not settings.enabled:
         return
+    if not context.space_data.overlay.show_overlays:
+        return
 
     frame = get_camera_frame_bounds(context)
     if not frame:

@@ -248,7 +248,9 @@ class RENDER_PT_Resources(bpy.types.Panel):
                 row.operator("resource.place_origin", text="", icon="CAMERA_DATA").origin_type = "camera"
         else:
             box.label(text="No hay previews disponibles")
-
+        box.separator()
+        box = layout.box()
+        
 
 class RENDER_PT_About(bpy.types.Panel):
     bl_label = "About"

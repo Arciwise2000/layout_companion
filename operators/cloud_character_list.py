@@ -82,3 +82,26 @@ class CHARACTERS_UL_List(bpy.types.UIList):
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
             layout.label(text="", icon_value=icon)
+
+
+classes =(
+    CharacterListItem,
+    CHARACTERS_UL_List,
+    CLOUD_OT_GetNameList
+)
+
+def register_character_list():
+    for cls in classes:
+        bpy.utils.register_class(cls)
+        
+    bpy.types.Scene.character_list_items = bpy.props.CollectionProperty(type=CharacterListItem)
+    bpy.types.Scene.character_list_index = bpy.props.IntProperty(default=0)
+    bpy.types.Scene.character_list_filter = bpy.props.StringProperty(name="Filter", default="")
+
+def unregister_character_list():
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
+    
+    del bpy.types.Scene.character_list_items
+    del bpy.types.Scene.character_list_index
+    del bpy.types.Scene.character_list_filter

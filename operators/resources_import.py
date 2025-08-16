@@ -3,6 +3,8 @@ import bpy
 import bpy.utils.previews
 from bpy.types import Operator
 from mathutils import Vector
+from bpy.props import EnumProperty
+import bpy.utils.previews
 
 # Diccionario global de previews
 preview_collections = {}
@@ -142,3 +144,33 @@ class RESOURCE_OT_place_origin(bpy.types.Operator):
 
         scene.cursor.location = target_location
         return {'FINISHED'}
+    
+
+classes = (
+    RESOURCE_OT_ImportSelected,
+    RESOURCE_OT_place_origin
+)
+
+def register_resource_import():
+    for cls in classes:
+        bpy.utils.register_class(cls)
+
+    pcoll = bpy.utils.previews.new()
+    pcoll.my_previews_dir = ""
+    pcoll.my_previews = []
+    preview_collections["main"] = pcoll
+
+    bpy.types.WindowManager.collection_preview_enum = EnumProperty(
+        name="Recursos",
+        items=enum_previews_from_images
+    )
+
+def unregister_resource_import():
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
+        
+    for pcoll in preview_collections.values():
+        bpy.utils.previews.remove(pcoll)
+    preview_collections.clear()
+    
+    del bpy.types.WindowManager.collection_preview_enum

@@ -2,6 +2,7 @@ import os
 import bpy
 
 
+
 def is_any_object_visible_in_render(collection_name):
     collection = is_collection_exist(collection_name)
     if not collection:
@@ -79,3 +80,5 @@ def check_emitters_in_collection():
                     return True
                 
     return False
+
+

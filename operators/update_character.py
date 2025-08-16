@@ -1,5 +1,4 @@
 import bpy
-import bpy.utils.previews
 import os
 
 def update_available_collections(self, context):
@@ -171,13 +170,21 @@ class UC_Operator_Updated_Character(bpy.types.Operator):
         return {"FINISHED"}
     
     
+classes =(
+    UC_Updated_Character,
+    UC_Operator_Updated_Character
+)
     
-    
-def register_props():
+def register_update_character():
+    for cls in classes:
+        bpy.utils.register_class(cls)
+        
     bpy.types.WindowManager.uc_updated_character = bpy.props.PointerProperty(
-        type=UC_Updated_Character,
-        options={'SKIP_SAVE'}
-    )
+    type=UC_Updated_Character,
+    options={'SKIP_SAVE'}
+)
 
-def unregister_props():
+def unregister_update_character():
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
     del bpy.types.WindowManager.uc_updated_character

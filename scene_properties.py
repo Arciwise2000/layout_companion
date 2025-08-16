@@ -1,6 +1,6 @@
 import bpy
 from bpy.props import BoolProperty
-
+from bpy.props import EnumProperty
 
 # Scene properties
 bpy.types.Scene.render_settings_fold = BoolProperty(
@@ -105,6 +105,18 @@ def register_props():
         description="Mostrar opciones de actualización de personaje",
         options={'SKIP_SAVE'}
     )
+    if not hasattr(bpy.types.Scene, "resource_tabs"):
+            bpy.types.Scene.resource_tabs = EnumProperty(
+                name="Tabs",
+                description="Selecciona la fuente de recursos",
+                items=[
+                    ('RESOURCES', "Resources", "Mostrar recursos locales"),
+                    ('DROPBOX PROPS', "Dropbox props", "Mostrar props colaborativos"),
+                ],
+                default='RESOURCES'
+            )
+
+
 
 def unregister_props():
     del bpy.types.WindowManager.show_characterUpdater

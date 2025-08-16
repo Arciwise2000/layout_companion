@@ -277,16 +277,6 @@ def draw_dropbox_resources(layout, context):
         box.label(text="Dropbox is not installed, install from button bellow",icon="X")
         box.operator("prop.install_dependencies",icon="IMPORT")
         return
-    
-    if prefs.dropbox_access_token:
-        row = box.row()
-        row.label(text="Authenticated with Dropbox", icon='CHECKMARK')
-        row.operator("prop.dropbox_logout", icon="DISCLOSURE_TRI_RIGHT")
-    else:
-        box.operator("prop.dropbox_auth", text="Connect with Dropbox", icon='URL')
-
-    if not prefs.dropbox_access_token:
-        return
 
     propBox = box.box()
     searchrow = propBox.row(align=True)
@@ -364,10 +354,6 @@ class RENDER_PT_Collab(bpy.types.Panel):
         if scene.prop_guideline:
             show_collab_guideline(box)
         
-        if not prefs.dropbox_access_token:
-            box.operator("prop.dropbox_auth", text="Connect with Dropbox", icon='URL')
-            return
-        
         databox = box.box()
         proprow = databox.row()
         proprow.prop(scene, "all_collections", text="Prop")
@@ -441,11 +427,6 @@ class RENDER_PT_About(bpy.types.Panel):
 @addon_updater_ops.make_annotations
 class RENDER_PT_UpdaterPreferences(bpy.types.AddonPreferences):
     bl_idname = __package__
-    
-    dropbox_access_token: bpy.props.StringProperty(
-        name="Dropbox Access Token",
-        subtype='PASSWORD',
-        default="")
     
     auto_check_update = bpy.props.BoolProperty(
         name="Auto-check for Update",

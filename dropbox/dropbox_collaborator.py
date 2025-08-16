@@ -5,7 +5,7 @@ import json
 import tempfile
 from pathlib import Path
 from ..addon_updater_ops import get_user_preferences
-from .dropbox_oauth import get_temp_folder,is_dropbox_installed
+from .dropbox_oauth import get_temp_folder, is_dropbox_installed, get_dbx
 
 
 TAGS_PROPS = [
@@ -26,6 +26,8 @@ TAGS_PROPS = [
     ('GND', "geometry node", "Tu prop contiene nodos de geometry nodes"),
     ('GRA', "grabable", "Tu prop puede ser sostenido por un personaje, uso comun. Un lapiz, una pocion, etc...")
 ]
+
+PROPS_FOLDER_PATH = ""
 
 
 def collections_enum_items(self, context):
@@ -82,11 +84,10 @@ def export_collection_clean(collection, filepath):
     )
 
 
-def upload_to_dropbox(local_path, dropbox_path, token):
-    """Sube un archivo a Dropbox."""
+def upload_to_dropbox(local_path, dropbox_path):
     import dropbox
     from dropbox.files import WriteMode
-    dbx = dropbox.Dropbox(token)
+    dbx = get_dbx()
     with open(local_path, "rb") as f:
         dbx.files_upload(f.read(), dropbox_path, mode=WriteMode("overwrite"))
 
@@ -98,13 +99,7 @@ class PROPS_OT_DropBoxExportCollection(bpy.types.Operator):
 
     def execute(self, context):
         scene = context.scene
-        prefs = get_user_preferences(context)
         import dropbox
-        token = prefs.dropbox_access_token if prefs else None
-
-        if not token:
-            self.report({'ERROR'}, "No hay sesión activa de Dropbox")
-            return {'CANCELLED'}
 
         collection = scene.all_collections
         if not collection:
@@ -116,24 +111,24 @@ class PROPS_OT_DropBoxExportCollection(bpy.types.Operator):
                 {'ERROR'}, "Falta asignar un ID al prop (prop_idname)!")
             return {'CANCELLED'}
 
-        if not scene.prop_idname.strip():
+        if not scene.prop_filename.strip():
             self.report({'ERROR'}, "Falta asignar el nombre al prop!")
             return {'CANCELLED'}
 
         if not scene.prop_preview_tex:
             self.report({'ERROR'}, "Falta preview!")
             return {'CANCELLED'}
-    
+
         prop_id = scene.prop_idname.strip()
-        dbx = dropbox.Dropbox(token)
-        dropbox_folder = "/Apps/Layout Companion/Props/"
+        dbx = get_dbx()
 
         json_filename = f"{prop_id}.json"
         try:
-            existing_files = dbx.files_list_folder(dropbox_folder).entries
+            existing_files = dbx.files_list_folder(PROPS_FOLDER_PATH).entries
             for f in existing_files:
                 if isinstance(f, dropbox.files.FileMetadata) and f.name.lower() == json_filename.lower():
-                    self.report({'ERROR'}, f"Ya existe un prop con el ID '{prop_id}' en Dropbox")
+                    self.report(
+                        {'ERROR'}, f"Ya existe un prop con el ID '{prop_id}' en Dropbox")
                     return {'CANCELLED'}
         except dropbox.exceptions.ApiError as e:
             self.report({'ERROR'}, f"No se pudo verificar en Dropbox: {e}")
@@ -150,6 +145,7 @@ class PROPS_OT_DropBoxExportCollection(bpy.types.Operator):
             # 1. Exportar el blend limpio
             export_collection_clean(collection, str(blend_path))
 
+            # 2. Guardar preview
             if scene.prop_preview_tex and scene.prop_preview_tex.image:
                 scene.prop_preview_tex.image.save_render(
                     filepath=str(png_path))
@@ -166,26 +162,23 @@ class PROPS_OT_DropBoxExportCollection(bpy.types.Operator):
                 "nombre_demostrativo": scene.prop_filename,
                 "thumbnail": f"{base_name}.png",
                 "colaborador": scene.collaborator_name,
-                "tags": selected_labels,  # aquí va la lista con los labels
+                "tags": selected_labels,
                 "descripcion": scene.prop_description
             }
             with open(json_path, "w", encoding="utf-8") as f:
                 json.dump(json_data, f, ensure_ascii=False, indent=4)
 
-            dropbox_base_path = f"/Apps/Layout Companion/Props/{base_name}"
-            upload_to_dropbox(
-                str(blend_path), f"{dropbox_base_path}.blend", token)
+            # 4. Subir a Dropbox (usando PROPS_FOLDER_PATH)
+            dropbox_base_path = f"{PROPS_FOLDER_PATH}/{base_name}"
+            upload_to_dropbox(str(blend_path), f"{dropbox_base_path}.blend")
             if png_path.exists():
-                upload_to_dropbox(
-                    str(png_path), f"{dropbox_base_path}.png", token)
-
-            upload_to_dropbox(
-                str(json_path), f"{dropbox_base_path}.json", token)
+                upload_to_dropbox(str(png_path), f"{dropbox_base_path}.png")
+            upload_to_dropbox(str(json_path), f"{dropbox_base_path}.json")
 
             self.report(
                 {'INFO'}, f"Prop '{base_name}' exportado a Dropbox correctamente")
             clear_all()
-            
+
         except Exception as e:
             self.report({'ERROR'}, f"Error al exportar: {e}")
             return {'CANCELLED'}
@@ -249,17 +242,16 @@ def clear_all():
     scenes = bpy.data.scenes
     if "EXPORT_PREVIEW" in scenes:
         scenes.remove(scenes["EXPORT_PREVIEW"])
-        
+
     scene = bpy.context.scene
     scene.all_collections = None
     scene.prop_idname = ""
     scene.prop_filename = ""
     scene.prop_description = ""
     scene.tags_props_enum = set()
-    
+
     if assign_render_to_preview in bpy.app.handlers.render_complete:
         bpy.app.handlers.render_complete.remove(assign_render_to_preview)
-        
 
 
 class PROPS_OT_SelectPreviewImage(bpy.types.Operator):
@@ -446,6 +438,7 @@ class DropboxCollabProperties(bpy.types.PropertyGroup):
         name="Guidelines",
         default=False
     )
+
 
 classes = (
     PROPS_OT_DropBoxExportCollection,

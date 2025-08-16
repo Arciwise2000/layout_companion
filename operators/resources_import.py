@@ -17,7 +17,31 @@ def enum_previews_from_images(self, context):
 
     if not os.path.exists(directory):
         return [("NONE", "Sin imágenes", "", 0, 0)]  # Fallback
+    
+    #eliminar luego ---------------------------------------
+    png_to_delete = ["Corazonpartido.png", "NubeDePelea.png"]
+    blend_to_delete = ["Corazonpartido.blend", "NubeDePelea.blend"]
 
+    for nombre in png_to_delete:
+        ruta = os.path.join(directory, nombre)
+        if os.path.exists(ruta):
+            try:
+                os.remove(ruta)
+                print(f"Archivo eliminado: {nombre}")
+            except Exception as e:
+                print(f"No se pudo eliminar {nombre}: {e}")
+    
+    blenddirectory = os.path.join(addon_root, "resources")
+    for nombre in blend_to_delete:
+        ruta = os.path.join(blenddirectory, nombre)
+        if os.path.exists(ruta):
+            try:
+                os.remove(ruta)
+                print(f"Archivo eliminado: {nombre}")
+            except Exception as e:
+                print(f"No se pudo eliminar {nombre}: {e}")
+
+    
     pcoll = preview_collections.get("main")
     if not pcoll:
         pcoll = bpy.utils.previews.new()

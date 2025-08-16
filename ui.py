@@ -330,6 +330,7 @@ def show_collab_guideline(layout):
     tips_box.label(text="• Las texturas no deben ser mayor a 2048x2048.")
     tips_box.label(text="• El material debe ser para Cycles, sin emission.")
     tips_box.label(text="• Evita subir el mismo prop que otros colaboradores.")
+    tips_box.label(text="• Nombre del prop en ingles. Descripcion: (ingles o español).")
     tips_box.label(text="• Se creativo :)")
     
 def collab_prop_status(layout, ready):

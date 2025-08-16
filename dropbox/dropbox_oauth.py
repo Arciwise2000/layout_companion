@@ -29,9 +29,15 @@ def is_dropbox_installed():
 
 
 def install_dropbox():
-    python_exe = sys.executable
+    blender_python = Path(sys.prefix) / "bin" / "python.exe"
+    if not blender_python.exists():
+        blender_python = Path(sys.prefix) / "python.exe"
+
     try:
-        subprocess.check_call([python_exe, "-m", "pip", "install", "dropbox"])
+        subprocess.check_call([str(blender_python), "-m", "ensurepip", "--upgrade"])
+        subprocess.check_call([str(blender_python), "-m", "pip", "install", "--upgrade", "pip"])
+        subprocess.check_call([str(blender_python), "-m", "pip", "install", "dropbox"])
+
         importlib.invalidate_caches()
         import dropbox
         return True

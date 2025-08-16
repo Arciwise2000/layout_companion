@@ -1,3 +1,6 @@
+import importlib
+import subprocess
+import sys
 import bpy
 import tempfile
 import os
@@ -14,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from difflib import SequenceMatcher
 
 
-## SISTEMA -------------------------------------------------
+# SISTEMA -------------------------------------------------
 
 
 def is_dropbox_installed():
@@ -24,7 +27,6 @@ def is_dropbox_installed():
     except ImportError:
         return False
 
-import sys, subprocess, importlib
 
 def install_dropbox():
     python_exe = sys.executable
@@ -53,18 +55,23 @@ class INSTALL_OT_dependencies(bpy.types.Operator):
             self.report({'ERROR'}, "No se pudo instalar Dropbox")
         return {'FINISHED'}
 
+
 preview_collections = {}
 CONFIG_PATH = Path(os.path.dirname(__file__)) / "config.json"
 
+
 def load_dropbox_config():
     if not CONFIG_PATH.exists():
-        raise FileNotFoundError(f"No se encontró el archivo de configuración: {CONFIG_PATH}")
+        raise FileNotFoundError(
+            f"No se encontró el archivo de configuración: {CONFIG_PATH}")
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 
+
 class PropTag(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty()
-    
+
+
 class LayoutCompanionPreview(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty()
     colaborador: bpy.props.StringProperty()
@@ -74,7 +81,7 @@ class LayoutCompanionPreview(bpy.types.PropertyGroup):
     tags: bpy.props.CollectionProperty(type=PropTag)
 
 
-#AUTENTICACION Y COSAS DE API DE DROPBOX------------
+# AUTENTICACION Y COSAS DE API DE DROPBOX------------
 
 class PROPS_OT_DropBoxAuthenticate(bpy.types.Operator):
     bl_idname = "prop.dropbox_auth"
@@ -82,20 +89,15 @@ class PROPS_OT_DropBoxAuthenticate(bpy.types.Operator):
 
     def execute(self, context):
         config = load_dropbox_config()
-        
+
         import dropbox
         from dropbox.oauth import DropboxOAuth2Flow
-        
+
         APP_KEY = config.get("APP_KEY")
-        APP_SECRET = config.get("APP_SECRET")
         REDIRECT_URI = "http://localhost:5000/callback"
-        CSRF_TOKEN_KEY = "dropbox_csrf_token"
 
         auth_data = {'code': None, 'state': None, 'error': None}
         auth_event = threading.Event()
-
-        csrf_token = secrets.token_urlsafe(32)
-        bpy.context.window_manager[CSRF_TOKEN_KEY] = csrf_token
 
         class AuthHandler(BaseHTTPRequestHandler):
             def do_GET(self):
@@ -109,7 +111,8 @@ class PROPS_OT_DropBoxAuthenticate(bpy.types.Operator):
                         self.send_response(200)
                         self.send_header('Content-type', 'text/html')
                         self.end_headers()
-                        self.wfile.write("<h1>¡Autenticacion exitosa! Puedes cerrar esta ventana.</h1>".encode("utf-8"))
+                        self.wfile.write(
+                            "<h1>¡Autenticación exitosa! Puedes cerrar esta ventana.</h1>".encode("utf-8"))
                     else:
                         auth_data['error'] = "Falta código de autorización"
                         self.send_error(400, auth_data['error'])
@@ -121,32 +124,28 @@ class PROPS_OT_DropBoxAuthenticate(bpy.types.Operator):
         def run_server():
             try:
                 server = HTTPServer(('localhost', 5000), AuthHandler)
-                server.timeout = 1  # Para que no se bloquee indefinidamente
-
-                # Loop hasta que se reciba código o error
+                server.timeout = 1
                 while not auth_event.is_set():
                     server.handle_request()
-
                 server.server_close()
             except Exception as e:
                 auth_data['error'] = f"No se pudo iniciar el servidor: {str(e)}"
                 auth_event.set()
 
-
-
         threading.Thread(target=run_server, daemon=True).start()
 
-        # 🧠 Crear flujo OAuth con token CSRF personalizado
         auth_flow = DropboxOAuth2Flow(
             consumer_key=APP_KEY,
-            consumer_secret=APP_SECRET,
+            consumer_secret=None,   # si usas PKCE, esto va como None
             redirect_uri=REDIRECT_URI,
-            csrf_token_session_key=CSRF_TOKEN_KEY,
-            token_access_type='offline',
-            session=bpy.context.window_manager
+            session={},             # puedes usar un dict vacío o manejar tu propio state
+            csrf_token_session_key="dropbox-auth-csrf-token",
+            use_pkce=True,          # 🚀 activa PKCE
+            token_access_type="offline"
         )
 
-        webbrowser.open(auth_flow.start())
+        authorize_url = auth_flow.start()
+        webbrowser.open(authorize_url)
 
         timeout = 60
         auth_event.wait(timeout)
@@ -159,16 +158,10 @@ class PROPS_OT_DropBoxAuthenticate(bpy.types.Operator):
             self.report({'ERROR'}, "Tiempo de espera agotado")
             return {'CANCELLED'}
 
-        # 🔐 Validación explícita del token CSRF
-        expected_state = bpy.context.window_manager.get(CSRF_TOKEN_KEY)
-        if auth_data['state'] != expected_state:
-            self.report({'ERROR'}, "Token CSRF inválido. Posible intento de suplantación.")
-            return {'CANCELLED'}
-
         try:
             result = auth_flow.finish({
-                'code': auth_data['code'],
-                'state': auth_data['state']
+                "code": auth_data["code"],
+                "state": auth_data["state"]
             })
 
             prefs = get_user_preferences(context)
@@ -186,12 +179,11 @@ class PROPS_OT_DropBoxAuthenticate(bpy.types.Operator):
 
         return {'FINISHED'}
 
+
 class PROPS_OT_DropBoxLogout(bpy.types.Operator):
     bl_idname = "prop.dropbox_logout"
     bl_label = "Logout"
-    
-    
-    
+
     def execute(self, context):
         try:
             prefs = get_user_preferences(context)
@@ -213,11 +205,12 @@ class PROPS_OT_DropBoxLogout(bpy.types.Operator):
             self.report({'ERROR'}, f"No se pudo cerrar sesión: {str(e)}")
             return {'CANCELLED'}
 
+
 class PROPS_OT_DropBoxImportBlend(bpy.types.Operator):
     bl_idname = "prop.dropbox_import_blend"
     bl_label = "Import"
     bl_description = "Importa el prop seleccionado"
-    
+
     def execute(self, context):
         prefs = get_user_preferences(context)
         import dropbox
@@ -250,23 +243,25 @@ class PROPS_OT_DropBoxImportBlend(bpy.types.Operator):
 
             with bpy.data.libraries.load(str(local_blend_path), link=False) as (data_from, data_to):
                 if not data_from.collections:
-                    self.report({'ERROR'}, f"No se encontraron collections en {blend_name}")
+                    self.report(
+                        {'ERROR'}, f"No se encontraron collections en {blend_name}")
                     return {'CANCELLED'}
 
                 data_to.collections = list(data_from.collections)
-                
-            imported_collections = {col.name: col for col in data_to.collections if col}
+
+            imported_collections = {
+                col.name: col for col in data_to.collections if col}
             root_collections = []
             scene = context.scene
-              
+
             if scene.resource_import_origin_camera:
                 bpy.ops.resource.place_origin(origin_type="camera")
-                
+
             for col in imported_collections.values():
-                
+
                 for obj in [o for o in col.objects if o.parent is None]:
                     obj.location = scene.cursor.location
-                    
+
                 is_child = False
                 for potential_parent in imported_collections.values():
                     if col.name in [child.name for child in potential_parent.children]:
@@ -278,9 +273,8 @@ class PROPS_OT_DropBoxImportBlend(bpy.types.Operator):
                 if root.name not in bpy.context.scene.collection.children:
                     bpy.context.scene.collection.children.link(root)
 
-                            
             self.report({'INFO'}, "Prop importado!.")
-            
+
         except dropbox.exceptions.ApiError:
             self.report({'ERROR'}, f"No se encontró {blend_name} en Dropbox.")
             return {'CANCELLED'}
@@ -297,6 +291,7 @@ class PROPS_OT_DropBoxImportBlend(bpy.types.Operator):
                     pass
 
         return {'FINISHED'}
+
 
 class PROPS_OT_DropBoxRefreshPreviews(bpy.types.Operator):
     bl_idname = "prop.dropbox_refresh_previews"
@@ -336,21 +331,24 @@ class PROPS_OT_DropBoxRefreshPreviews(bpy.types.Operator):
                         area.tag_redraw()
 
         # Llamada asincrónica con control de errores
-        fetch_dropbox_assets_async_safe(prefs.dropbox_access_token, on_assets_loaded)
+        fetch_dropbox_assets_async_safe(
+            prefs.dropbox_access_token, on_assets_loaded)
 
         self.report({'INFO'}, "Descargando previews desde Dropbox...")
         return {'FINISHED'}
 
+
 def fetch_dropbox_assets_async_safe(access_token, callback):
     from dropbox.exceptions import AuthError
-    
+
     def worker():
         try:
             previews = fetch_dropbox_assets(access_token)
             bpy.app.timers.register(lambda: callback(previews, None))
         except AuthError as e:
             if getattr(e.error, 'is_expired_access_token', lambda: False)():
-                bpy.app.timers.register(lambda: callback(None, "expired_token"))
+                bpy.app.timers.register(
+                    lambda: callback(None, "expired_token"))
             else:
                 bpy.app.timers.register(lambda: callback(None, "auth_error"))
         except Exception as e:
@@ -359,7 +357,8 @@ def fetch_dropbox_assets_async_safe(access_token, callback):
 
     threading.Thread(target=worker, daemon=True).start()
 
-#ENUM DE PROPS, CACHE Y UI------------
+# ENUM DE PROPS, CACHE Y UI------------
+
 
 def get_temp_folder():
     base_temp = Path(tempfile.gettempdir())
@@ -369,10 +368,10 @@ def get_temp_folder():
 
 
 def fetch_dropbox_assets(access_token):
-    
+
     import dropbox
     from dropbox.exceptions import AuthError
-    
+
     dbx = dropbox.Dropbox(access_token)
     target_path = "/Apps/Layout Companion/Props"
     temp_folder = get_temp_folder()
@@ -393,23 +392,25 @@ def fetch_dropbox_assets(access_token):
             try:
                 metadata, res = dbx.files_download(entry.path_lower)
                 data = json.loads(res.content)
-                
+
                 json_path = temp_folder / entry.name
                 with open(json_path, "wb") as f:
                     f.write(res.content)
-                    
+
                 # Manejar imagen asociada
                 thumbnail_name = data.get("thumbnail")
                 image_path = None
 
                 if thumbnail_name:
                     try:
-                        _, img_res = dbx.files_download(f"{target_path}/{thumbnail_name}")
+                        _, img_res = dbx.files_download(
+                            f"{target_path}/{thumbnail_name}")
                         image_path = temp_folder / thumbnail_name
                         with open(image_path, "wb") as f:
                             f.write(img_res.content)
                     except Exception as e:
-                        print(f"[Dropbox] Error al descargar imagen {thumbnail_name}: {e}")
+                        print(
+                            f"[Dropbox] Error al descargar imagen {thumbnail_name}: {e}")
 
                 raw_tags = data.get("tags", [])
                 if not isinstance(raw_tags, list):
@@ -430,7 +431,8 @@ def fetch_dropbox_assets(access_token):
 
         # 2️⃣ Descargar JSON e imágenes en paralelo
         with ThreadPoolExecutor(max_workers=8) as executor:
-            futures = {executor.submit(process_json, entry): entry for entry in json_files}
+            futures = {executor.submit(
+                process_json, entry): entry for entry in json_files}
             for future in as_completed(futures):
                 result = future.result()
                 if result:
@@ -443,6 +445,7 @@ def fetch_dropbox_assets(access_token):
 
     return previews
 
+
 def store_previews_in_context(previews):
     wm = bpy.context.window_manager
     wm.layout_companion_previews.clear()
@@ -453,11 +456,12 @@ def store_previews_in_context(previews):
         preview.descripcion = item["descripcion"]
         preview.image_path = item["image_path"]
         preview.json_filename = item["json_filename"]
-        
+
         preview.tags.clear()
         for t in item.get("tags", []):
             tag_item = preview.tags.add()
             tag_item.name = t
+
 
 def register_dropbox_previews(previews):
     temp_folder = get_temp_folder()
@@ -480,9 +484,11 @@ def register_dropbox_previews(previews):
             try:
                 thumb = pcoll.load(filename, image_path, 'IMAGE')
             except Exception as e:
-                print(f"[register_dropbox_previews] Error cargando imagen {image_path}: {e}")
+                print(
+                    f"[register_dropbox_previews] Error cargando imagen {image_path}: {e}")
                 continue
-        enum_items.append((filename, item["name"], item.get("descripcion", ""), thumb.icon_id, i))
+        enum_items.append((filename, item["name"], item.get(
+            "descripcion", ""), thumb.icon_id, i))
 
     pcoll.my_previews = enum_items
 
@@ -498,6 +504,7 @@ def register_dropbox_previews(previews):
     except Exception:
         pass
 
+
 def get_active_dropbox_preview(context):
     wm = context.window_manager
     selected_name = wm.dropbox_preview_enum
@@ -505,6 +512,7 @@ def get_active_dropbox_preview(context):
         if os.path.basename(item.image_path) == selected_name:
             return item
     return None
+
 
 def load_previews_from_cache():
     """Carga los previews desde el directorio temporal usando los archivos JSON guardados."""
@@ -543,6 +551,7 @@ def load_previews_from_cache():
 
     return previews
 
+
 def cleanup_temp_files():
     temp_folder = get_temp_folder()
     for file in temp_folder.glob("*"):
@@ -553,7 +562,7 @@ def cleanup_temp_files():
             print(f"Error al eliminar archivo temporal {file}: {e}")
 
 
-## PAGINACION Y BUSQUEDA -------------------------------------------------
+# PAGINACION Y BUSQUEDA -------------------------------------------------
 
 def compute_filtered_items(context):
     """
@@ -565,7 +574,8 @@ def compute_filtered_items(context):
     if not pcoll or not getattr(wm, "layout_companion_previews", None):
         return []
 
-    all_items = list(pcoll.my_previews) if getattr(pcoll, "my_previews", None) else []
+    all_items = list(pcoll.my_previews) if getattr(
+        pcoll, "my_previews", None) else []
     search = (wm.dropbox_search or "").strip().lower()
     if not search:
         # Sin búsqueda: devolver lista tal cual (mantener icon_id y demás)
@@ -591,7 +601,8 @@ def compute_filtered_items(context):
 
         # Similaridad básica
         score_name = SequenceMatcher(None, search, name_l).ratio()
-        score_desc = SequenceMatcher(None, search, desc_l).ratio() if desc_l else 0.0
+        score_desc = SequenceMatcher(
+            None, search, desc_l).ratio() if desc_l else 0.0
         score_tags = 0.0
         for t in tags:
             s = SequenceMatcher(None, search, t).ratio()
@@ -670,13 +681,15 @@ classes = (
     PROPS_OT_DropBoxLogout
 )
 
+
 def register_dropbox():
     if is_dropbox_installed():
         for cls in classes:
             bpy.utils.register_class(cls)
-            
-        bpy.types.WindowManager.layout_companion_previews = bpy.props.CollectionProperty(type=LayoutCompanionPreview)
-        
+
+        bpy.types.WindowManager.layout_companion_previews = bpy.props.CollectionProperty(
+            type=LayoutCompanionPreview)
+
         # Propiedad de búsqueda (update dispara la selección automática y repintado)
         if not hasattr(bpy.types.WindowManager, "dropbox_search"):
             bpy.types.WindowManager.dropbox_search = bpy.props.StringProperty(
@@ -695,18 +708,19 @@ def register_dropbox():
     else:
         bpy.utils.register_class(INSTALL_OT_dependencies)
 
+
 def unregister_dropbox():
     if is_dropbox_installed():
         for cls in reversed(classes):
             bpy.utils.unregister_class(cls)
-        
+
         if hasattr(bpy.types.WindowManager, "dropbox_search"):
             del bpy.types.WindowManager.dropbox_search
-        
+
         if "dropbox" in preview_collections:
             bpy.utils.previews.remove(preview_collections["dropbox"])
             del preview_collections["dropbox"]
-    
+
         if hasattr(bpy.types.WindowManager, "dropbox_preview_enum"):
             del bpy.types.WindowManager.dropbox_preview_enum
         del bpy.types.WindowManager.layout_companion_previews

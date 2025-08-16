@@ -27,16 +27,21 @@ def is_dropbox_installed():
     except ImportError:
         return False
 
+def is_blender_python():
+    exe_path = Path(sys.executable)
+    return "Blender Foundation" in str(exe_path) and exe_path.name == "python.exe"
+
 
 def install_dropbox():
-    blender_python = Path(sys.prefix) / "bin" / "python.exe"
-    if not blender_python.exists():
-        blender_python = Path(sys.prefix) / "python.exe"
+    blender_python = sys.executable
+    
+    if not is_blender_python():
+        print("⚠️ No estás usando el Python embebido de Blender. La instalación fallará.")
 
     try:
-        subprocess.check_call([str(blender_python), "-m", "ensurepip", "--upgrade"])
-        subprocess.check_call([str(blender_python), "-m", "pip", "install", "--upgrade", "pip"])
-        subprocess.check_call([str(blender_python), "-m", "pip", "install", "dropbox"])
+        subprocess.check_call([blender_python, "-m", "ensurepip", "--upgrade"])
+        subprocess.check_call([blender_python, "-m", "pip", "install", "--upgrade", "pip"])
+        subprocess.check_call([blender_python, "-m", "pip", "install", "dropbox"])
 
         importlib.invalidate_caches()
         import dropbox
@@ -44,6 +49,8 @@ def install_dropbox():
     except Exception as e:
         print("Error instalando dropbox:", e)
         return False
+
+
 
 
 class INSTALL_OT_dependencies(bpy.types.Operator):

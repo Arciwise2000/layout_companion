@@ -276,7 +276,12 @@ def draw_dropbox_resources(layout, context):
     propBox = box.box()
     searchrow = propBox.row(align=True)
     searchrow.operator("prop.dropbox_refresh_previews", icon='FILE_REFRESH')
+    searchrow.prop(scene, "dropbox_advance_settings", text="",icon="SETTINGS")
     searchrow.prop(wm, "dropbox_search", text="", icon='VIEWZOOM')
+    if scene.dropbox_advance_settings:
+        deleterow = propBox.row()
+        deleterow.label(text="Eliminar el prop seleccionado de Dropbox ->")
+        deleterow.operator("prop.dropbox_delete", text="", icon='TRASH')
     propBox.template_icon_view(wm, "dropbox_preview_enum")
 
     if hasattr(wm, "dropbox_preview_enum") and wm.dropbox_preview_enum:

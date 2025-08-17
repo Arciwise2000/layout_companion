@@ -195,6 +195,72 @@ class PROPS_OT_DropBoxRefreshPreviews(bpy.types.Operator):
         return {'FINISHED'}
 
 
+class PROPS_OT_DeletePropFromDropbox(bpy.types.Operator):
+    bl_idname = "prop.dropbox_delete"
+    bl_label = "Delete Prop from Dropbox"
+    bl_description = "Elimina el prop seleccionado de Dropbox (¡cuidado, es permanente!)"
+
+    def execute(self, context):
+        import dropbox
+        import json
+
+        active_preview = get_active_dropbox_preview(context)
+        if not active_preview:
+            self.report(
+                {'ERROR'}, "No se ha seleccionado ningún asset para eliminar.")
+            return {'CANCELLED'}
+
+        try:
+            dbx = get_dbx()
+        except Exception as e:
+            self.report({'ERROR'}, f"Dropbox no configurado: {e}")
+            return {'CANCELLED'}
+
+        json_name = active_preview.json_filename
+        json_path = f"{SHARED_FOLDER_PATH}/{json_name}"
+
+        blend_name = os.path.splitext(json_name)[0] + ".blend"
+        blend_path = f"{SHARED_FOLDER_PATH}/{blend_name}"
+
+        thumb_path = None
+        try:
+            _, res = dbx.files_download(json_path)
+            data = json.loads(res.content.decode("utf-8"))
+            thumbnail_name = data.get("thumbnail")
+            if thumbnail_name:
+                # carpeta del JSON en dropbox
+                entry_dir = os.path.dirname(json_path)
+                thumb_path = f"{entry_dir}/{thumbnail_name}".replace("//", "/")
+        except Exception as e:
+            print(
+                f"[Dropbox] No se pudo obtener thumbnail desde {json_name}: {e}")
+
+        deleted_files = []
+        errors = []
+
+        for path in [json_path, blend_path, thumb_path]:
+            if not path:
+                continue
+            try:
+                dbx.files_delete_v2(path)
+                deleted_files.append(os.path.basename(path))
+            except dropbox.exceptions.ApiError as e:
+                errors.append(f"{os.path.basename(path)}: {e}")
+
+        if deleted_files:
+            self.report({'INFO'}, "Prop eliminado permanentemente o_o")
+        if errors:
+            self.report({'ERROR'}, f"Errores: {', '.join(errors)}")
+
+        # Refrescar previews después de borrar
+        fetch_dropbox_assets_async_safe(
+            lambda previews, error=None: register_dropbox_previews(
+                previews) if previews else None
+        )
+
+        return {'FINISHED'}
+
+
 def fetch_dropbox_assets_async_safe(callback):
     from dropbox.exceptions import AuthError
 
@@ -527,7 +593,8 @@ classes = (
     PropTag,
     LayoutCompanionPreview,
     PROPS_OT_DropBoxRefreshPreviews,
-    PROPS_OT_DropBoxImportBlend
+    PROPS_OT_DropBoxImportBlend,
+    PROPS_OT_DeletePropFromDropbox
 )
 
 
@@ -535,6 +602,10 @@ def register_dropbox():
     for cls in classes:
         bpy.utils.register_class(cls)
 
+    bpy.types.Scene.dropbox_advance_settings = bpy.props.BoolProperty(
+        name="Advance Settings",
+        default=False
+    )
     bpy.types.WindowManager.layout_companion_previews = bpy.props.CollectionProperty(
         type=LayoutCompanionPreview)
 

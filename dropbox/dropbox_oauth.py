@@ -4,10 +4,8 @@ import sys
 import bpy
 import tempfile
 import os
-import secrets
 import json
 import threading
-import webbrowser
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import urlparse, parse_qs
@@ -19,59 +17,10 @@ from difflib import SequenceMatcher
 
 # SISTEMA -------------------------------------------------
 
-
-def is_dropbox_installed():
-    try:
-        import dropbox
-        return True
-    except ImportError:
-        return False
-
-def is_blender_python():
-    exe_path = Path(sys.executable)
-    return "Blender Foundation" in str(exe_path) and exe_path.name == "python.exe"
-
-
-def install_dropbox():
-    blender_python = sys.executable
-    
-    if not is_blender_python():
-        print("⚠️ No estás usando el Python embebido de Blender. La instalación fallará.")
-
-    try:
-        subprocess.check_call([blender_python, "-m", "ensurepip", "--upgrade"])
-        subprocess.check_call([blender_python, "-m", "pip", "install", "--upgrade", "pip"])
-        subprocess.check_call([blender_python, "-m", "pip", "install", "dropbox"])
-
-        importlib.invalidate_caches()
-        import dropbox
-        return True
-    except Exception as e:
-        print("Error instalando dropbox:", e)
-        return False
-
-
-
-
-class INSTALL_OT_dependencies(bpy.types.Operator):
-    bl_idname = "prop.install_dependencies"
-    bl_label = "Instalar librería Dropbox"
-
-    def execute(self, context):
-        ok = install_dropbox()
-        if ok:
-            register_dropbox()
-            from .dropbox_collaborator import register_dropbox_collaboration
-            register_dropbox_collaboration()
-            self.report({'INFO'}, "Dropbox instalado correctamente")
-        else:
-            self.report({'ERROR'}, "No se pudo instalar Dropbox")
-        return {'FINISHED'}
-
-
 preview_collections = {}
 CONFIG_PATH = Path(os.path.dirname(__file__)) / "config.json"
 SHARED_FOLDER_PATH = ""
+
 
 def load_dropbox_config():
     if not CONFIG_PATH.exists():
@@ -80,8 +29,10 @@ def load_dropbox_config():
     with open(CONFIG_PATH, "r", encoding="utf-8") as f:
         return json.load(f)
 
+
 # --- NUEVO: cliente Dropbox con refresh token (auto-refresh) ---
 _dbx_client = None
+
 
 def get_dbx():
     global _dbx_client
@@ -278,7 +229,8 @@ def fetch_dropbox_assets():
     previews = []
 
     try:
-        entries = dbx.files_list_folder(SHARED_FOLDER_PATH, recursive=True).entries
+        entries = dbx.files_list_folder(
+            SHARED_FOLDER_PATH, recursive=True).entries
 
         json_files = [
             e for e in entries
@@ -303,13 +255,15 @@ def fetch_dropbox_assets():
                     try:
                         # Carpeta del JSON
                         entry_dir = os.path.dirname(entry.path_lower)
-                        thumb_path = f"{entry_dir}/{thumbnail_name}".replace("//", "/")
+                        thumb_path = f"{entry_dir}/{thumbnail_name}".replace(
+                            "//", "/")
                         _, img_res = dbx.files_download(thumb_path)
                         image_path = temp_folder / thumbnail_name
                         with open(image_path, "wb") as f:
                             f.write(img_res.content)
                     except Exception as e:
-                        print(f"[Dropbox] Error al descargar imagen {thumbnail_name}: {e}")
+                        print(
+                            f"[Dropbox] Error al descargar imagen {thumbnail_name}: {e}")
 
                 raw_tags = data.get("tags", [])
                 if not isinstance(raw_tags, list):
@@ -318,7 +272,7 @@ def fetch_dropbox_assets():
                 return {
                     "name": data.get("nombre_demostrativo", entry.name),
                     "image_path": str(image_path) if image_path else None,
-                    "tags": [str(t).strip() for t in raw_tags if str(t).strip() ],
+                    "tags": [str(t).strip() for t in raw_tags if str(t).strip()],
                     "descripcion": data.get("descripcion", ""),
                     "colaborador": data.get("colaborador", ""),
                     "json_filename": entry.name
@@ -328,7 +282,8 @@ def fetch_dropbox_assets():
                 return None
 
         with ThreadPoolExecutor(max_workers=8) as executor:
-            futures = {executor.submit(process_json, entry): entry for entry in json_files}
+            futures = {executor.submit(
+                process_json, entry): entry for entry in json_files}
             for future in as_completed(futures):
                 result = future.result()
                 if result:
@@ -577,46 +532,40 @@ classes = (
 
 
 def register_dropbox():
-    if is_dropbox_installed():
-        for cls in classes:
-            bpy.utils.register_class(cls)
+    for cls in classes:
+        bpy.utils.register_class(cls)
 
-        bpy.types.WindowManager.layout_companion_previews = bpy.props.CollectionProperty(
-            type=LayoutCompanionPreview)
+    bpy.types.WindowManager.layout_companion_previews = bpy.props.CollectionProperty(
+        type=LayoutCompanionPreview)
 
-        # Propiedad de búsqueda (update dispara la selección automática y repintado)
-        if not hasattr(bpy.types.WindowManager, "dropbox_search"):
-            bpy.types.WindowManager.dropbox_search = bpy.props.StringProperty(
-                name="Buscar",
-                description="Filtrar assets por nombre / tags",
-                default="",
-                update=dropbox_search_update
-            )
+    # Propiedad de búsqueda (update dispara la selección automática y repintado)
+    if not hasattr(bpy.types.WindowManager, "dropbox_search"):
+        bpy.types.WindowManager.dropbox_search = bpy.props.StringProperty(
+            name="Buscar",
+            description="Filtrar assets por nombre / tags",
+            default="",
+            update=dropbox_search_update
+        )
 
-        # Enum dinámico para previews (items toma la lista filtrada)
-        if not hasattr(bpy.types.WindowManager, "dropbox_preview_enum"):
-            bpy.types.WindowManager.dropbox_preview_enum = bpy.props.EnumProperty(
-                name="Dropbox Previews",
-                items=_get_filtered_enum_items
-            )
-    else:
-        bpy.utils.register_class(INSTALL_OT_dependencies)
+    # Enum dinámico para previews (items toma la lista filtrada)
+    if not hasattr(bpy.types.WindowManager, "dropbox_preview_enum"):
+        bpy.types.WindowManager.dropbox_preview_enum = bpy.props.EnumProperty(
+            name="Dropbox Previews",
+            items=_get_filtered_enum_items
+        )
 
 
 def unregister_dropbox():
-    if is_dropbox_installed():
-        for cls in reversed(classes):
-            bpy.utils.unregister_class(cls)
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)
 
-        if hasattr(bpy.types.WindowManager, "dropbox_search"):
-            del bpy.types.WindowManager.dropbox_search
+    if hasattr(bpy.types.WindowManager, "dropbox_search"):
+        del bpy.types.WindowManager.dropbox_search
 
-        if "dropbox" in preview_collections:
-            bpy.utils.previews.remove(preview_collections["dropbox"])
-            del preview_collections["dropbox"]
+    if "dropbox" in preview_collections:
+        bpy.utils.previews.remove(preview_collections["dropbox"])
+        del preview_collections["dropbox"]
 
-        if hasattr(bpy.types.WindowManager, "dropbox_preview_enum"):
-            del bpy.types.WindowManager.dropbox_preview_enum
-        del bpy.types.WindowManager.layout_companion_previews
-    else:
-        bpy.utils.unregister_class(INSTALL_OT_dependencies)
+    if hasattr(bpy.types.WindowManager, "dropbox_preview_enum"):
+        del bpy.types.WindowManager.dropbox_preview_enum
+    del bpy.types.WindowManager.layout_companion_previews

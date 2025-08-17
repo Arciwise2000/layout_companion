@@ -5,7 +5,7 @@ import json
 import tempfile
 from pathlib import Path
 from ..addon_updater_ops import get_user_preferences
-from .dropbox_oauth import get_temp_folder, is_dropbox_installed, get_dbx
+from .dropbox_oauth import get_temp_folder, get_dbx
 
 
 TAGS_PROPS = [
@@ -179,7 +179,7 @@ class PROPS_OT_DropBoxExportCollection(bpy.types.Operator):
                 {'INFO'}, f"Prop '{base_name}' exportado a Dropbox correctamente")
             clear_all()
 
-        except Exception as e:
+        except Exception as e: 
             self.report({'ERROR'}, f"Error al exportar: {e}")
             return {'CANCELLED'}
         finally:
@@ -451,16 +451,14 @@ classes = (
 
 
 def register_dropbox_collaboration():
-    if is_dropbox_installed():
-        for cls in classes:
-            bpy.utils.register_class(cls)
+    for cls in classes:
+        bpy.utils.register_class(cls)
 
-        bpy.types.Scene.dropbox_props = bpy.props.PointerProperty(
-            type=DropboxCollabProperties)
+    bpy.types.Scene.dropbox_props = bpy.props.PointerProperty(
+        type=DropboxCollabProperties)
 
 
 def unregister_dropbox_collaboration():
-    if is_dropbox_installed():
-        del bpy.types.Scene.dropbox_props
-        for cls in reversed(classes):
-            bpy.utils.unregister_class(cls)
+    del bpy.types.Scene.dropbox_props
+    for cls in reversed(classes):
+        bpy.utils.unregister_class(cls)

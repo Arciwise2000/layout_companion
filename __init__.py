@@ -1,6 +1,6 @@
 bl_info = {
     "name": "Layout Companion",
-    "version": (1, 8, 3),
+    "version": (1, 8, 4),
     "author": "Arciwise",
     "blender": (4, 5, 0),
     "location": "View3D > Sidebar > Layout Companion",
@@ -9,10 +9,18 @@ bl_info = {
 }
 
 import bpy
+import os
+import sys
 from . import scene_properties
 from . import addon_updater_ops
 from . import ui
 from bpy.app.handlers import persistent
+
+addon_dir = os.path.dirname(__file__)
+lib_dir = os.path.join(addon_dir, "dropbox", "lib")
+
+if lib_dir not in sys.path:
+    sys.path.insert(0, lib_dir)
 
 from .operators.mesh_analyze import MESH_OT_AnalyzeMesh
 from .operators.quick_render_setup import RENDER_OT_QuickSetup
@@ -24,7 +32,7 @@ from .operators.update_character import register_update_character, unregister_up
 from .operators.cloud_character_list import register_character_list, unregister_character_list
 from .operators.resources_import import register_resource_import, unregister_resource_import
 from .dropbox.dropbox_collaborator import register_dropbox_collaboration, unregister_dropbox_collaboration
-from .dropbox.dropbox_oauth import register_dropbox, unregister_dropbox, register_dropbox_previews,load_previews_from_cache,is_dropbox_installed
+from .dropbox.dropbox_oauth import register_dropbox, unregister_dropbox, register_dropbox_previews,load_previews_from_cache
 from .operators.camera_composition import register as register_camera, unregister as unregister_camera
 
 @persistent
@@ -55,7 +63,7 @@ def register():
         OBJECT_OT_AddDecimateModifier,
         OBJECT_OT_AddSmoothByAngle,
     ):
-        bpy.utils.register_class(cls)
+        bpy.utils.register_class(cls) 
 
     register_extras()
     register_resource_import()
@@ -64,9 +72,9 @@ def register():
     register_dropbox_collaboration()
     register_camera()
     ui.register_ui()
-    if is_dropbox_installed:
-        if on_blend_loaded not in bpy.app.handlers.load_post:
-            bpy.app.handlers.load_post.append(on_blend_loaded)
+    
+    if on_blend_loaded not in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.append(on_blend_loaded)
 
 
 def unregister():

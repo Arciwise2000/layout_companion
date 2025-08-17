@@ -3,7 +3,7 @@ import os
 from . import bl_info
 from . import addon_updater_ops
 from .addon_updater_ops import get_user_preferences
-from .dropbox.dropbox_oauth import get_temp_folder,cleanup_temp_files,is_dropbox_installed
+from .dropbox.dropbox_oauth import get_temp_folder,cleanup_temp_files
 from .scene_utils import (
     is_any_object_visible_in_render,
     is_collection_exist,
@@ -272,11 +272,6 @@ def draw_dropbox_resources(layout, context):
     prefs = get_user_preferences(context)
 
     box = layout.box()
-    
-    if not is_dropbox_installed():
-        box.label(text="Dropbox is not installed, install from button bellow",icon="X")
-        box.operator("prop.install_dependencies",icon="IMPORT")
-        return
 
     propBox = box.box()
     searchrow = propBox.row(align=True)
@@ -341,12 +336,7 @@ class RENDER_PT_Collab(bpy.types.Panel):
         layout = self.layout
         box = layout.box()
         scene = context.scene
-        prefs = get_user_preferences(context)
         boxrow = box.row()
-        
-        if not is_dropbox_installed():
-            boxrow.label(text="Dropbox is not installed, install from: resources > dropbox props tab",icon="X")
-            return
         
         boxrow.label(text="Export prop to collab",icon="NEWFOLDER")
         boxrow.prop(scene,"prop_guideline",text="",icon="QUESTION")

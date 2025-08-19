@@ -156,19 +156,17 @@ class PROPS_OT_DropBoxImportBlend(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class PROPS_OT_DropBoxRefreshPreviews(bpy.types.Operator):
-    bl_idname = "prop.dropbox_refresh_previews"
-    bl_label = ""
-    bl_description = "Recarga la lista de assets desde Dropbox"
-
-    def execute(self, context):
-
-        def on_assets_loaded(previews, error=None):
+def on_assets_loaded(previews, error=None):
             wm = bpy.context.window_manager
 
             if error == "auth_error":
                 wm.popup_menu(lambda self, ctx: self.layout.label(
                     text="Error de autenticación. Revisa config.json."
+                ), title="Dropbox", icon='ERROR')
+                return
+            if error == "no_connection":
+                wm.popup_menu(lambda self, ctx: self.layout.label(
+                    text="Error de conexion, verifica tu internet"
                 ), title="Dropbox", icon='ERROR')
                 return
 
@@ -188,6 +186,12 @@ class PROPS_OT_DropBoxRefreshPreviews(bpy.types.Operator):
                     if area.type in {'VIEW_3D', 'PROPERTIES'}:
                         area.tag_redraw()
 
+class PROPS_OT_DropBoxRefreshPreviews(bpy.types.Operator):
+    bl_idname = "prop.dropbox_refresh_previews"
+    bl_label = ""
+    bl_description = "Recarga la lista de assets desde Dropbox"
+
+    def execute(self, context):
         # Llamada asincrónica con control de errores
         fetch_dropbox_assets_async_safe(on_assets_loaded)
 
@@ -263,20 +267,51 @@ class PROPS_OT_DeletePropFromDropbox(bpy.types.Operator):
 
 def fetch_dropbox_assets_async_safe(callback):
     from dropbox.exceptions import AuthError
-
+    import requests
+    import urllib3.exceptions
+    
     def worker():
         try:
             previews = fetch_dropbox_assets()
             bpy.app.timers.register(lambda: callback(previews, None))
         except AuthError:
             bpy.app.timers.register(lambda: callback(None, "auth_error"))
+        except (requests.exceptions.ConnectionError, urllib3.exceptions.NameResolutionError):
+            bpy.app.timers.register(lambda: callback(None, "no_connection"))
         except Exception as e:
             print(f"[Dropbox] Error general: {e}")
             bpy.app.timers.register(lambda: callback(None, "general_error"))
 
     threading.Thread(target=worker, daemon=True).start()
 
+
 # ENUM DE PROPS, CACHE Y UI------------
+
+class PROPS_OT_CleanupCache(bpy.types.Operator):
+    bl_idname = "props.cleanup_cache"
+    bl_label = "Limpiar Caché"
+    bl_description = "Elimina todos los archivos temporales de la carpeta de caché"
+
+    def execute(self, context):
+        try:
+            cleanup_temp_files()
+            #fetch_dropbox_assets_async_safe(on_assets_loaded)
+            wm = bpy.context.window_manager
+            wm.layout_companion_previews.clear()
+            self.report({'INFO'}, "Caché limpiada con éxito.")
+        except Exception as e:
+            self.report({'ERROR'}, f"Error al limpiar caché: {e}")
+            return {'CANCELLED'}
+        return {'FINISHED'}
+    
+def cleanup_temp_files():
+    temp_folder = get_temp_folder()
+    for file in temp_folder.glob("*"):
+        try:
+            if file.is_file():
+                file.unlink()
+        except Exception as e:
+            print(f"Error al eliminar archivo temporal {file}: {e}")    
 
 
 def get_temp_folder():
@@ -358,8 +393,8 @@ def fetch_dropbox_assets():
     except AuthError:
         raise
     except Exception as e:
-        print(f"[Dropbox] Error al listar carpeta compartida: {e}")
-
+        raise
+    
     return previews
 
 
@@ -469,15 +504,6 @@ def load_previews_from_cache():
     return previews
 
 
-def cleanup_temp_files():
-    temp_folder = get_temp_folder()
-    for file in temp_folder.glob("*"):
-        try:
-            if file.is_file():
-                file.unlink()
-        except Exception as e:
-            print(f"Error al eliminar archivo temporal {file}: {e}")
-
 
 # PAGINACION Y BUSQUEDA -------------------------------------------------
 
@@ -544,7 +570,7 @@ def compute_filtered_items(context):
     filtered = [itm for score, itm in scored if score >= threshold]
     if not filtered:
         # fallback: los más cercanos (hasta 200)
-        filtered = [itm for score, itm in scored[:50]]
+        filtered = [itm for score, itm in scored[:10]]
 
     # Re-indexar (5º elemento) para enumeración estable en la UI
     result = []
@@ -592,6 +618,7 @@ def dropbox_search_update(self, context):
 classes = (
     PropTag,
     LayoutCompanionPreview,
+    PROPS_OT_CleanupCache,
     PROPS_OT_DropBoxRefreshPreviews,
     PROPS_OT_DropBoxImportBlend,
     PROPS_OT_DeletePropFromDropbox

@@ -276,12 +276,16 @@ def draw_dropbox_resources(layout, context):
     propBox = box.box()
     searchrow = propBox.row(align=True)
     searchrow.operator("prop.dropbox_refresh_previews", icon='FILE_REFRESH')
-    searchrow.prop(scene, "dropbox_advance_settings", text="",icon="SETTINGS")
     searchrow.prop(wm, "dropbox_search", text="", icon='VIEWZOOM')
+    searchrow.prop(scene, "dropbox_advance_settings", text="",icon="SETTINGS")
     if scene.dropbox_advance_settings:
         deleterow = propBox.row()
-        deleterow.label(text="Eliminar el prop seleccionado de Dropbox ->")
+        deleterow.label(text="Eliminar el prop seleccionado de Dropbox")
         deleterow.operator("prop.dropbox_delete", text="", icon='TRASH')
+    
+        cache_size_mb = get_cache_size_mb()
+        propBox.operator("props.cleanup_cache", text=f"Limpiar caché {cache_size_mb:.2f} MB", icon='TRASH')
+    
     propBox.template_icon_view(wm, "dropbox_preview_enum")
 
     if hasattr(wm, "dropbox_preview_enum") and wm.dropbox_preview_enum:
@@ -446,39 +450,19 @@ class RENDER_PT_UpdaterPreferences(bpy.types.AddonPreferences):
         layout.prop(self, "layouter_name")
         layout.separator()
         addon_updater_ops.update_settings_ui(self, context)
-        layout.separator()
-        box = layout.box()
+
+def get_cache_size_mb():
         temp_folder = get_temp_folder()
-        cache_size_mb = self.get_cache_size_mb(temp_folder)
-        box.label(text=f"Tamaño de caché: {cache_size_mb:.2f} MB")
-        box.operator("props.cleanup_cache", text="Limpiar caché", icon='TRASH')
-
-    def get_cache_size_mb(self, folder_path):
-            total_size = 0
-            for root, dirs, files in os.walk(folder_path):
-                for f in files:
-                    fp = os.path.join(root, f)
-                    if os.path.isfile(fp):
-                        total_size += os.path.getsize(fp)
-            return total_size / (1024 * 1024)  # Convertir a MB
-
-class PROPS_OT_CleanupCache(bpy.types.Operator):
-    bl_idname = "props.cleanup_cache"
-    bl_label = "Limpiar Caché"
-    bl_description = "Elimina todos los archivos temporales de la carpeta de caché"
-
-    def execute(self, context):
-        try:
-            cleanup_temp_files()
-            self.report({'INFO'}, "Caché limpiada con éxito.")
-        except Exception as e:
-            self.report({'ERROR'}, f"Error al limpiar caché: {e}")
-            return {'CANCELLED'}
-        return {'FINISHED'}
+        total_size = 0
+        for root, dirs, files in os.walk(temp_folder):
+            for f in files:
+                fp = os.path.join(root, f)
+                if os.path.isfile(fp):
+                    total_size += os.path.getsize(fp)
+        return total_size / (1024 * 1024)  # Convertir a MB
 
 
 classes =(
-    PROPS_OT_CleanupCache,
     RENDER_PT_QuickSetupPanel,
     RENDER_PT_Resources,
     RENDER_PT_Collab,

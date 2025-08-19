@@ -118,6 +118,12 @@ class PROPS_OT_DropBoxExportCollection(bpy.types.Operator):
         if not scene.prop_preview_tex:
             self.report({'ERROR'}, "Falta preview!")
             return {'CANCELLED'}
+        if not scene.prop_preview_tex:
+            self.report({'ERROR'}, "Falta preview!")
+            return {'CANCELLED'}
+        if not bool(scene.tags_props_enum):
+            self.report({'ERROR'}, "Falta tags!")
+            return {'CANCELLED'}
 
         prop_id = scene.prop_idname.strip()
         dbx = get_dbx()

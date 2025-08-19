@@ -71,8 +71,20 @@ class OT_EXTRAS_RenderNote(bpy.types.Operator):
             return {'CANCELLED'}
         
         obj.parent = cam
-        obj.location = (-0.32, -0.17, -1)  # delante de la cámara
-        obj.rotation_euler = (0, 0, 0)  
+        obj.location = (-0.32, -0.17, -1)
+        obj.rotation_euler = (0, 0, 0)
+        
+        current_frame = context.scene.frame_current
+        obj.keyframe_insert(data_path="scale", frame=current_frame)
+        
+        obj.scale = (0.0, 0.0, 0.0)
+        obj.keyframe_insert(data_path="scale", frame=current_frame - 1)
+
+        for fcurve in obj.animation_data.action.fcurves:
+            if fcurve.data_path == "scale":
+                for keyframe in fcurve.keyframe_points:
+                    keyframe.interpolation = 'CONSTANT'
+
 
         return {'FINISHED'}
     

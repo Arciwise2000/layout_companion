@@ -1,5 +1,4 @@
 import bpy
-import math
 from ..scene_utils import is_collection_exist
 
 class OT_EXTRAS_BakeParticles(bpy.types.Operator):
@@ -95,6 +94,7 @@ def register_extras():
         OT_EXTRAS_RenderNote
     ):
         bpy.utils.register_class(cls)
+
 
 def unregister_extras():
     for cls in reversed((

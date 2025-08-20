@@ -24,7 +24,8 @@ TAGS_PROPS = [
     ('FXS', "Effect", "Tu prop es un particle system, sequencia de sprites, o algun otro que se considere efecto visual"),
     ('MIS', "misc", "Si tu prop no cumple con ningun tag agregado o es muy personalizado, textos, curves etc..."),
     ('GND', "geometry node", "Tu prop contiene nodos de geometry nodes"),
-    ('GRA', "grabable", "Tu prop puede ser sostenido por un personaje, uso comun. Un lapiz, una pocion, etc...")
+    ('GRA', "grabable", "Tu prop puede ser sostenido por un personaje, uso comun. Un lapiz, una pocion, etc..."),
+    ('2D', "2d", "Tu prop es un objeto 2D, como un plano con una imagen, o un objeto de tipo 'IMAGE'"),
 ]
 
 PROPS_FOLDER_PATH = ""
@@ -127,9 +128,12 @@ class PROPS_OT_DropBoxExportCollection(bpy.types.Operator):
 
         prop_id = scene.prop_idname.strip()
         dbx = get_dbx()
-
+        wm = context.window_manager
+        
         json_filename = f"{prop_id}.json"
         try:
+            wm.progress_begin(0, 100)
+            wm.progress_update(25)
             existing_files = dbx.files_list_folder(PROPS_FOLDER_PATH).entries
             for f in existing_files:
                 if isinstance(f, dropbox.files.FileMetadata) and f.name.lower() == json_filename.lower():
@@ -139,7 +143,8 @@ class PROPS_OT_DropBoxExportCollection(bpy.types.Operator):
         except dropbox.exceptions.ApiError as e:
             self.report({'ERROR'}, f"No se pudo verificar en Dropbox: {e}")
             return {'CANCELLED'}
-
+        
+        wm.progress_update(50)
         temp_dir = get_temp_folder()
         base_name = scene.prop_idname.strip()
 
@@ -173,14 +178,17 @@ class PROPS_OT_DropBoxExportCollection(bpy.types.Operator):
             }
             with open(json_path, "w", encoding="utf-8") as f:
                 json.dump(json_data, f, ensure_ascii=False, indent=4)
-
+            
+            wm.progress_update(75)
+            
             # 4. Subir a Dropbox (usando PROPS_FOLDER_PATH)
             dropbox_base_path = f"{PROPS_FOLDER_PATH}/{base_name}"
             upload_to_dropbox(str(blend_path), f"{dropbox_base_path}.blend")
             if png_path.exists():
                 upload_to_dropbox(str(png_path), f"{dropbox_base_path}.png")
             upload_to_dropbox(str(json_path), f"{dropbox_base_path}.json")
-
+            wm.progress_update(100)
+            wm.progress_end()
             self.report(
                 {'INFO'}, f"Prop '{base_name}' exportado a Dropbox correctamente")
             clear_all()

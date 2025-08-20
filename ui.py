@@ -200,6 +200,12 @@ def draw_extras_content(layout, context):
      row.prop(settings, "width", text="")
      
      
+    #  box = layout.box()
+    #  box.label(text="Overlays", icon='OVERLAY')
+    #  row = box.row(align=True)
+    #  row.prop(context.scene, "overlay_show_render_objects")
+
+     
 ##---------------------PANELS----------------------------##
 
 class RENDER_PT_QuickSetupPanel(bpy.types.Panel):
@@ -277,7 +283,7 @@ def draw_dropbox_resources(layout, context):
     searchrow = propBox.row(align=True)
     searchrow.operator("prop.dropbox_refresh_previews", icon='FILE_REFRESH')
     searchrow.prop(wm, "dropbox_search", text="", icon='VIEWZOOM')
-    searchrow.prop(scene, "dropbox_advance_settings", text="",icon="SETTINGS")
+    searchrow.prop(scene, "dropbox_advance_settings", text="",icon="TOOL_SETTINGS")
     if scene.dropbox_advance_settings:
         deleterow = propBox.row()
         deleterow.label(text="Eliminar el prop seleccionado de Dropbox")

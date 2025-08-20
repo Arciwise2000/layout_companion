@@ -74,7 +74,7 @@ class PROPS_OT_DropBoxImportBlend(bpy.types.Operator):
     bl_idname = "prop.dropbox_import_blend"
     bl_label = "Import"
     bl_description = "Importa el prop seleccionado"
-
+    bl_options = {'REGISTER', 'UNDO'}
     def execute(self, context):
         import dropbox
 
@@ -96,13 +96,16 @@ class PROPS_OT_DropBoxImportBlend(bpy.types.Operator):
 
         temp_folder = get_temp_folder()
         local_blend_path = temp_folder / blend_name
-
+        
+        wm = context.window_manager
         try:
+            wm.progress_begin(0, 100)
+            wm.progress_update(25)
             metadata, res = dbx.files_download(target_path)
             with open(local_blend_path, "wb") as f:
                 f.write(res.content)
-
-            self.report({'INFO'}, f"Archivo descargado: {blend_name}")
+            
+            wm.progress_update(50) #Descargado
 
             with bpy.data.libraries.load(str(local_blend_path), link=False) as (data_from, data_to):
                 if not data_from.collections:
@@ -137,6 +140,8 @@ class PROPS_OT_DropBoxImportBlend(bpy.types.Operator):
                     bpy.context.scene.collection.children.link(root)
 
             self.report({'INFO'}, "Prop importado!.")
+            wm.progress_update(100)
+            wm.progress_end()
 
         except dropbox.exceptions.ApiError:
             self.report({'ERROR'}, f"No se encontró {blend_name} en Dropbox.")
@@ -631,6 +636,7 @@ def register_dropbox():
 
     bpy.types.Scene.dropbox_advance_settings = bpy.props.BoolProperty(
         name="Advance Settings",
+        options={'SKIP_SAVE'},
         default=False
     )
     bpy.types.WindowManager.layout_companion_previews = bpy.props.CollectionProperty(

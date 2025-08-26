@@ -42,7 +42,7 @@ def draw_layout_status_content(layout, context):
     ##recuerdo  COLOR_01 ES ROJO 
     if scene.show_render_status:
         
-        icon_bd_version = 'STRIP_COLOR_01' if not bpy.app.version >= (4, 5, 0) else 'STRIP_COLOR_04'
+        icon_bd_version = 'STRIP_COLOR_01' if not bpy.app.version == (4, 5, 2) else 'STRIP_COLOR_04'
         col.label(text="Blender version", icon=icon_bd_version)
         
         ##-----------------------

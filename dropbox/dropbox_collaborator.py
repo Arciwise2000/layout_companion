@@ -261,7 +261,7 @@ def clear_all():
     scene.all_collections = None
     scene.prop_idname = ""
     scene.prop_filename = ""
-    scene.prop_description = ""
+    scene.prop_description = "Prop listo para su uso!"
     scene.tags_props_enum = set()
 
     if assign_render_to_preview in bpy.app.handlers.render_complete:

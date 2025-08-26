@@ -1,33 +1,73 @@
 import bpy
 from ..scene_utils import is_collection_exist
 
+
+def get_all_objects_recursive(collection):
+    objects = list(collection.objects)
+    for subcol in collection.children:
+        objects.extend(get_all_objects_recursive(subcol))
+    return objects
+
+
 class OT_EXTRAS_BakeParticles(bpy.types.Operator):
     bl_idname = "extra.bake_particles"
     bl_label = "Bake all Particles without cache"
-    bl_description = "Bakea todas las particulas sin cache dentro de EFECTOS"
-    
+    bl_description = "Bakea todas las partículas sin cache dentro de EFECTOS"
+
     @classmethod
     def poll(cls, context):
         return True
-    
+
     def execute(self, context):
         collection = is_collection_exist("EFECTOS")
         if not collection:
             self.report({'ERROR'}, "No se encontró la colección: EFECTOS")
             return {'CANCELLED'}
-        
-        scene = context.scene
-        for object in collection.objects:
-            for modifier in object.modifiers:
-                if modifier.type == 'PARTICLE_SYSTEM':
-                    modifier.particle_system.point_cache.use_disk_cache = True
-                    modifier.particle_system.point_cache.name = object.name + "_Cache"
-                    with bpy.context.temp_override(
-                        scene=scene,
-                        active_object=object,
-                        point_cache=modifier.particle_system.point_cache): bpy.ops.ptcache.bake(bake=True)
 
+        scene = context.scene
+        all_objects = get_all_objects_recursive(collection)
+
+        particle_mods = []
+        for obj in all_objects:
+            for mod in obj.modifiers:
+                if mod.type == 'PARTICLE_SYSTEM':
+                    particle_mods.append((obj, mod))
+
+        total = len(particle_mods)
+        if total == 0:
+            self.report({'WARNING'}, "No se encontraron sistemas de partículas.")
+            return {'CANCELLED'}
+
+        wm = context.window_manager
+        wm.progress_begin(0, 100)
+
+        try:
+            for i, (obj, mod) in enumerate(particle_mods):
+                pcache = mod.particle_system.point_cache
+                pcache.use_disk_cache = True
+                pcache.name = obj.name + "_Cache"
+
+                with bpy.context.temp_override(
+                    scene=scene,
+                    active_object=obj,
+                    point_cache=pcache
+                ):
+                    bpy.ops.ptcache.free_bake()
+                    bpy.ops.ptcache.bake(bake=True)
+
+                progress = int(((i + 1) / total) * 100)
+                wm.progress_update(progress)
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Error durante el bake: {e}")
+            return {'CANCELLED'}
+
+        finally:
+            wm.progress_end()
+
+        self.report({'INFO'}, f"Se bakearon {total} sistemas de partículas.")
         return {'FINISHED'}
+
     
 class OT_EXTRAS_RenderNote(bpy.types.Operator):
     bl_idname = "extra.create_note"

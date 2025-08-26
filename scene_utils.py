@@ -60,13 +60,26 @@ def get_icon_by_leght(frames):
     else:
         return "STRIP_COLOR_01","Demasiado corto! Obligatorio extender"
 
+def get_all_objects_recursive(collection):
+        
+    objects = list(collection.objects)
+    for subcol in collection.children:
+        objects.extend(get_all_objects_recursive(subcol))
+    return objects
+
 def check_emitters_in_collection():
     collection = is_collection_exist("EFECTOS")
-   
+    
     if not collection:
         return False
-
-    for obj in collection.objects:
+    
+    all_objects = get_all_objects_recursive(collection)
+    
+    total = len(all_objects)
+    if total == 0:
+        return False
+    
+    for obj in all_objects:
         for mod in obj.modifiers:
             if mod.type == 'PARTICLE_SYSTEM':
                 psys = mod.particle_system

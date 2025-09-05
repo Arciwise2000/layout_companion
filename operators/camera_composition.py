@@ -28,7 +28,7 @@ class CameraFrameSettings(bpy.types.PropertyGroup):
         name="Width",
         min=0.2,
         max=3.5,
-        default= 1,
+        default= 2,
         description="Grosor de las líneas guía"
     )
 

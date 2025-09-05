@@ -66,9 +66,7 @@ def draw_layout_status_content(layout, context):
         ##-----------------------
         isVisibleOnRender = is_any_object_visible_in_render("NOTAS_LAYOUT")
         icon_render = 'STRIP_COLOR_04' if not isVisibleOnRender else 'STRIP_COLOR_01'
-        layoutnoterow = col.row()
-        layoutnoterow.label(text="Visible layout notes", icon=icon_render)
-        layoutnoterow.operator("extra.create_note", text="", icon="PLUS")
+        col.label(text="Visible layout notes", icon=icon_render)
         draw_informative_box(col,"Hay objetos con visibilidad en render dentro de 'NOTAS LAYOUT'. Apagalas!",isVisibleOnRender)
         ##-----------------------
         chacheParticles = check_emitters_in_collection()
@@ -186,10 +184,17 @@ def draw_character_settings_content(layout, context):
 def draw_extras_content(layout, context):
      scene = context.scene
      settings = scene.camera_frame_settings
+     ln_settings = scene.layout_notes_settings
      
      box = layout.box()
-     box.label(text="Particles", icon='PARTICLES')
-     box.operator("extra.bake_particles", text="Bake all particles", icon='FILE_VOLUME')
+     box.label(text="Layout notes", icon='FILE_TEXT')
+     row = box.row(align=True)
+     row.operator("extra.create_note", text="Create note", icon="PLUS")
+     row.prop(ln_settings, "text_color", text="")
+     
+     rowgp = box.row(align=True)
+     rowgp.operator("extra.create_note_gp", text="Create draw", icon="GREASEPENCIL")
+     rowgp.prop(ln_settings, "grease_pencil_color", text="")
      
      box = layout.box()
      box.label(text="Camera", icon='CAMERA_DATA')
@@ -199,13 +204,9 @@ def draw_extras_content(layout, context):
      row.prop(settings, "color", text="")
      row.prop(settings, "width", text="")
      
-     
-    #  box = layout.box()
-    #  box.label(text="Overlays", icon='OVERLAY')
-    #  row = box.row(align=True)
-    #  row.prop(context.scene, "overlay_show_render_objects")
-
-     
+     box = layout.box()
+     box.label(text="Particles", icon='PARTICLES')
+     box.operator("extra.bake_particles", text="Bake all particles", icon='FILE_VOLUME')
 ##---------------------PANELS----------------------------##
 
 class RENDER_PT_QuickSetupPanel(bpy.types.Panel):

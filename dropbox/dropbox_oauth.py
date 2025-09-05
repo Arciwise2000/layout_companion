@@ -1,15 +1,9 @@
-import importlib
-import subprocess
-import sys
 import bpy
 import tempfile
 import os
 import json
 import threading
 from pathlib import Path
-from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import urlparse, parse_qs
-from ..addon_updater_ops import get_user_preferences
 import bpy.utils.previews
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from difflib import SequenceMatcher
@@ -387,7 +381,7 @@ def fetch_dropbox_assets():
                 print(f"[Dropbox] Error procesando {entry.name}: {e}")
                 return None
 
-        with ThreadPoolExecutor(max_workers=8) as executor:
+        with ThreadPoolExecutor(max_workers=32) as executor:
             futures = {executor.submit(
                 process_json, entry): entry for entry in json_files}
             for future in as_completed(futures):

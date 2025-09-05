@@ -1,5 +1,28 @@
 import bpy
 from ..scene_utils import is_collection_exist
+from bpy.props import FloatVectorProperty
+
+class LayoutNotesProperties(bpy.types.PropertyGroup):
+    text_color: FloatVectorProperty(
+        name="Color",
+        subtype='COLOR',
+        size=3,
+        min=0.0,
+        max=1.0,
+        default=(1, 0.1, 0.1),
+        description="Color del texto de la nota"
+    )
+    grease_pencil_color: FloatVectorProperty(
+        name="Color",
+        subtype='COLOR',
+        size=4,
+        min=0.0,
+        max=1.0,
+        default=(1, 0.1, 0.1,1),
+        description="Color del Grease Pencil"
+    )
+
+
 
 
 def get_all_objects_recursive(collection):
@@ -96,7 +119,20 @@ class OT_EXTRAS_RenderNote(bpy.types.Operator):
         obj = context.active_object
         obj.data.body = self.text
         obj.scale = (0.04, 0.04, 0.04)
+        
+        color = context.scene.layout_notes_settings.text_color
+        rgb_color = list(color) + [1.0]
+        
+        base_name = "Emission_Note"
+        unique_name = get_unique_material_name(base_name)
+        mat = create_material(unique_name, rgb_color)
+        
+        if obj.data.materials:
+            obj.data.materials[0] = mat
+        else:
+            obj.data.materials.append(mat)
 
+        
         for c in obj.users_collection:
             c.objects.unlink(obj)
         coll.objects.link(obj)
@@ -110,7 +146,9 @@ class OT_EXTRAS_RenderNote(bpy.types.Operator):
             return {'CANCELLED'}
         
         obj.parent = cam
-        obj.location = (-0.32, -0.17, -1)
+
+        obj.location = (-0.32, -0.17, focal_compensation(cam))
+
         obj.rotation_euler = (0, 0, 0)
         
         current_frame = context.scene.frame_current
@@ -126,19 +164,129 @@ class OT_EXTRAS_RenderNote(bpy.types.Operator):
 
 
         return {'FINISHED'}
-    
+
+class OT_EXTRAS_RenderNoteGP(bpy.types.Operator):
+    bl_idname = "extra.create_note_gp"
+    bl_label = ""
+    bl_description = "Crea una nota de dibujo"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        if context.mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+        
+        coll_name = "NOTAS_LAYOUT"
+        if coll_name in bpy.data.collections:
+            coll = bpy.data.collections[coll_name]
+        else:
+            coll = bpy.data.collections.new(coll_name)
+            context.scene.collection.children.link(coll)
+
+        bpy.ops.object.grease_pencil_add(location=(0, 0, 0))
+        gp_object = context.active_object
+        gp_object.name = "GP_Note"
+        
+        gp_object.hide_render = True
+        cam = context.scene.camera
+        if not cam:
+            self.report({'ERROR'}, "No hay cámara en la escena.")
+            bpy.data.objects.remove(gp_object)
+            return {'CANCELLED'}
+        
+        for c in gp_object.users_collection:
+            c.objects.unlink(gp_object)
+        coll.objects.link(gp_object)
+        
+        gp_object.parent = cam
+
+        gp_object.location = (-0.32, -0.17, focal_compensation(cam))
+        gp_object.rotation_euler = (0, 0, 0)
+
+
+        gp_data = gp_object.data
+        
+        color = context.scene.layout_notes_settings.grease_pencil_color
+        bpy.ops.material.new()
+        bpy.context.object.active_material.grease_pencil.color = color
+
+        bpy.ops.object.select_all(action='DESELECT')
+        gp_object.select_set(True)
+        context.view_layer.objects.active = gp_object
+        bpy.ops.object.mode_set(mode='PAINT_GREASE_PENCIL')
+        context.tool_settings.gpencil_paint.brush.size = 2
+        
+        return {'FINISHED'}
+
+def focal_compensation(cam):
+    focal_ref = 50.0
+    depth_ref = -1.0
+    focal_actual = cam.data.lens if cam and cam.type == 'CAMERA' else focal_ref
+    depth_scaled = depth_ref * (focal_actual / focal_ref)
+    return depth_scaled
+
+def create_material(name, color_rgba):
+    mat = bpy.data.materials.get(name)
+    if mat:
+        return mat
+
+    mat = bpy.data.materials.new(name)
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+
+    nodes.clear()
+
+    emission = nodes.new(type='ShaderNodeEmission')
+    output = nodes.new(type='ShaderNodeOutputMaterial')
+
+    emission.location = (-200, 0)
+    output.location = (0, 0)
+
+    emission.inputs['Color'].default_value = color_rgba
+    emission.inputs['Strength'].default_value = 1
+
+    links.new(emission.outputs['Emission'], output.inputs['Surface'])
+
+    return mat
+
+
+
+def get_unique_material_name(base_name):
+    existing = bpy.data.materials
+    if base_name not in existing:
+        return base_name
+
+    index = 1
+    while True:
+        new_name = f"{base_name}_{str(index).zfill(3)}"
+        if new_name not in existing:
+            return new_name
+        index += 1
+
+
+
+
     
 def register_extras():
     for cls in (
+        LayoutNotesProperties,
         OT_EXTRAS_BakeParticles,
-        OT_EXTRAS_RenderNote
+        OT_EXTRAS_RenderNote,
+        OT_EXTRAS_RenderNoteGP
     ):
         bpy.utils.register_class(cls)
-
+    
+    bpy.types.Scene.layout_notes_settings = bpy.props.PointerProperty(type=LayoutNotesProperties)
 
 def unregister_extras():
+    
+    if hasattr(bpy.types.Scene, "layout_notes_settings"):
+        del bpy.types.Scene.layout_notes_settings
+    
     for cls in reversed((
+        LayoutNotesProperties,
         OT_EXTRAS_BakeParticles,
-        OT_EXTRAS_RenderNote
+        OT_EXTRAS_RenderNote,
+        OT_EXTRAS_RenderNoteGP
     )):
         bpy.utils.unregister_class(cls)

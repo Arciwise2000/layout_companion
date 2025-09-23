@@ -9,7 +9,7 @@ class LayoutNotesProperties(bpy.types.PropertyGroup):
         size=3,
         min=0.0,
         max=1.0,
-        default=(1, 0.1, 0.1),
+        default=(1, 0, 0),
         description="Color del texto de la nota"
     )
     grease_pencil_color: FloatVectorProperty(
@@ -18,7 +18,7 @@ class LayoutNotesProperties(bpy.types.PropertyGroup):
         size=4,
         min=0.0,
         max=1.0,
-        default=(1, 0.1, 0.1,1),
+        default=(1, 0, 0,1),
         description="Color del Grease Pencil"
     )
 
@@ -213,7 +213,38 @@ class OT_EXTRAS_RenderNoteGP(bpy.types.Operator):
         gp_object.select_set(True)
         context.view_layer.objects.active = gp_object
         bpy.ops.object.mode_set(mode='PAINT_GREASE_PENCIL')
-        context.tool_settings.gpencil_paint.brush.size = 2
+        
+        brush = context.tool_settings.gpencil_paint.brush
+        brush.size = 2
+        brush.strength = 1.0
+        return {'FINISHED'}
+
+class OT_EXTRAS_HideNotes(bpy.types.Operator):
+    bl_idname = "extra.hide_notes"
+    bl_label = ""
+    bl_description = "Oculta la nota seleccionada, escala : (0,0,0)"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        if context.mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+       
+        obj = context.active_object
+        if not obj:
+            self.report({'WARNING'}, "No hay objeto activo")
+            return {'CANCELLED'}
+        
+        in_collection = any(col.name == "NOTAS_LAYOUT" for col in obj.users_collection)
+        if not in_collection:
+            self.report({'WARNING'}, "El objeto no está en la colección 'NOTAS_LAYOUT'")
+            return {'CANCELLED'}
+        
+        current_frame = context.scene.frame_current
+        
+        obj.keyframe_insert(data_path="scale", frame=current_frame - 1)
+        
+        obj.scale = (0.0, 0.0, 0.0)
+        obj.keyframe_insert(data_path="scale", frame=current_frame)
         
         return {'FINISHED'}
 
@@ -250,7 +281,6 @@ def create_material(name, color_rgba):
     return mat
 
 
-
 def get_unique_material_name(base_name):
     existing = bpy.data.materials
     if base_name not in existing:
@@ -272,7 +302,8 @@ def register_extras():
         LayoutNotesProperties,
         OT_EXTRAS_BakeParticles,
         OT_EXTRAS_RenderNote,
-        OT_EXTRAS_RenderNoteGP
+        OT_EXTRAS_RenderNoteGP,
+        OT_EXTRAS_HideNotes
     ):
         bpy.utils.register_class(cls)
     
@@ -287,6 +318,7 @@ def unregister_extras():
         LayoutNotesProperties,
         OT_EXTRAS_BakeParticles,
         OT_EXTRAS_RenderNote,
-        OT_EXTRAS_RenderNoteGP
+        OT_EXTRAS_RenderNoteGP,
+        OT_EXTRAS_HideNotes
     )):
         bpy.utils.unregister_class(cls)

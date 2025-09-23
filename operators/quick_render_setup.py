@@ -38,7 +38,7 @@ class RENDER_OT_QuickSetup(bpy.types.Operator):
 
                 if not os.path.exists(notas_anim_path):
                     with open(notas_anim_path, "w", encoding="utf-8") as f:
-                        f.write("NOAS PARA ANIMADOR (layouter: " + prefs.layouter_name + "):\n")
+                        f.write("NOTAS PARA ANIMADOR (layouter: " + prefs.layouter_name + "):\n")
             else:
                 scene.render.filepath = "//render_output.mp4"
                 self.report({'WARNING'}, "Usando ruta de salida por defecto. Guarda el archivo .blend primero.")

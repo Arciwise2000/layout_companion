@@ -60,13 +60,17 @@ class CLOUD_OT_GetNameList(bpy.types.Operator):
             self._report_error(context, f"Error: {str(e)}")
 
     def _report_error(self, context, message):
+        op_name = self.bl_idname  # lo guardamos antes de que muera
         def report():
-            self.report({'ERROR'}, message)
+            for area in bpy.context.screen.areas:
+                if area.type == 'INFO':
+                    print(f"[{op_name}] ERROR: {message}")
         bpy.app.timers.register(report, first_interval=0.1)
 
     def _report_info(self, context, message):
         def report():
-            self.report({'INFO'}, message)
+            wm = bpy.context.window_manager
+            wm.popup_menu(lambda self, ctx: self.layout.label(text=message), title="Info", icon='INFO')
         bpy.app.timers.register(report, first_interval=0.1)
         
         

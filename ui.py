@@ -42,7 +42,7 @@ def draw_layout_status_content(layout, context):
     ##recuerdo  COLOR_01 ES ROJO 
     if scene.show_render_status:
         
-        icon_bd_version = 'STRIP_COLOR_01' if not bpy.app.version == (4, 5, 2) else 'STRIP_COLOR_04'
+        icon_bd_version = 'STRIP_COLOR_01' if not bpy.app.version == (4, 5, 3) else 'STRIP_COLOR_04'
         col.label(text="Blender version", icon=icon_bd_version)
         
         ##-----------------------
@@ -195,6 +195,8 @@ def draw_extras_content(layout, context):
      rowgp = box.row(align=True)
      rowgp.operator("extra.create_note_gp", text="Create draw", icon="GREASEPENCIL")
      rowgp.prop(ln_settings, "grease_pencil_color", text="")
+    
+     box.operator("extra.hide_notes", text="Hide note with keyframe", icon="HIDE_ON")
      
      box = layout.box()
      box.label(text="Camera", icon='CAMERA_DATA')

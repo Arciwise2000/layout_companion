@@ -10,7 +10,7 @@ Sigue estos sencillos pasos para instalar el add-on en Blender:
 1.  **Descarga el Archivo:** Obtén el archivo comprimido (`.zip`) de Layout Companion en tu equipo. **¡Importante! No lo descomprimas.**
 
 2.  **Abre Blender:**
-    * Ve a **Edit (Editar)** → **Preferences**.
+    * Ve a **Edit** → **Preferences**.
     * Selecciona la pestaña **Add-ons**.
     * Haz clic en el botón **Install from disk**.
 

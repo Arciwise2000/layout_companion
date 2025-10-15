@@ -23,4 +23,4 @@ Para agilizar ciertas cosas en el area de layout.
 Como usar layout companion
 ======
 ‎*Tutorial en Youtube:*
-[![Tutorial](/visuals/Tutorial_Min.jpg)]([https://youtu.be/zKneHVkP6YQ](https://www.youtube.com/playlist?list=PLJnbM9GLGL-p0A9zpAo08OjqCHfNlJ0Ef))
+[![Tutorial](/visuals/Tutorial_Min.jpg)](https://www.youtube.com/playlist?list=PLJnbM9GLGL-p0A9zpAo08OjqCHfNlJ0Ef)

@@ -1,6 +1,6 @@
 ## 🚀 Layout Companion
 
-**Descripción:** Layout Companion es una herramienta diseñada para **optimizar y acelerar** tu flujo de trabajo de *layout* (organización y distribución de elementos) dentro de Blender, facilitando tareas repetitivas.
+Layout Companion es una herramienta diseñada para **optimizar y acelerar** tu flujo de trabajo de *layout* (organización y distribución de elementos) dentro de Blender, facilitando tareas repetitivas.
 ---
 
 ## ⬇️ Instalación

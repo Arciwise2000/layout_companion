@@ -1,8 +1,6 @@
 import os
 import bpy
 
-
-
 def is_any_object_visible_in_render(collection_name):
     collection = is_collection_exist(collection_name)
     if not collection:
@@ -40,9 +38,9 @@ def file_exists_in_blend_directory(filename: str) -> bool:
 
 def get_icon_by_vertices(vertices):
     if vertices > 100000:
-        return "STRIP_COLOR_01", "Geometria con demasiados poligonos, altamente recomendable NO usar"
+        return "STRIP_COLOR_01", "Geometria con demasiados poligonos, altamente recomendable NO usar (NO aplicarle keys de animacion)"
     elif vertices > 60000:
-        return "STRIP_COLOR_02", "Considera agregar un decimate o usar otro prop"
+        return "STRIP_COLOR_02", "Considera agregar un decimate o usar otro prop (NO aplicarle keys de animacion)"
     elif vertices > 30000:
         return "STRIP_COLOR_03", "Geometria Aceptable"
     elif vertices > 10000:

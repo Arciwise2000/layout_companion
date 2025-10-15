@@ -1,6 +1,6 @@
 bl_info = {
     "name": "Layout Companion",
-    "version": (1, 8, 80),
+    "version": (1, 9, 1),
     "author": "Arciwise",
     "blender": (4, 5, 0),
     "location": "View3D > Sidebar > Layout Companion",
@@ -14,40 +14,52 @@ import sys
 from . import scene_properties
 from . import addon_updater_ops
 from . import ui
-from bpy.app.handlers import persistent
 
 addon_dir = os.path.dirname(__file__)
-lib_dir = os.path.join(addon_dir, "dropbox", "lib")
+libs_dir = os.path.join(addon_dir, "libs")
 
-if lib_dir not in sys.path:
-    sys.path.insert(0, lib_dir)
+if libs_dir not in sys.path:
+    sys.path.append(libs_dir)
 
 from .operators.mesh_analyze import MESH_OT_AnalyzeMesh
 from .operators.quick_render_setup import RENDER_OT_QuickSetup
-from .operators.character_apply_scale import CHARACTER_OT_ApplyScaleToSelected
 from .operators.object_fix_materials import MESH_OT_FixMaterials, MESH_OT_EmissionView
 from .operators.object_add_modifiers import OBJECT_OT_AddDecimateModifier, OBJECT_OT_AddSmoothByAngle
 from .operators.ot_extras import register_extras,unregister_extras
-from .operators.update_character import register_update_character, unregister_update_character
-from .operators.cloud_character_list import register_character_list, unregister_character_list
+from .operators.character_updater import register_update_character, unregister_update_character
+from .operators.github_scales import register_character_list, unregister_character_list
 from .operators.resources_import import register_resource_import, unregister_resource_import
-from .dropbox.dropbox_collaborator import register_dropbox_collaboration, unregister_dropbox_collaboration
-from .dropbox.dropbox_oauth import register_dropbox, unregister_dropbox, register_dropbox_previews,load_previews_from_cache
+from .drive.drive_collaborator import register_drive_collaboration, unregister_drive_collaboration
+from .drive.drive_importer import register_drive, unregister_drive
+from .drive.horns_resources import register_horns_resources, unregister_horns_resources
 from .operators.camera_composition import register as register_camera, unregister as unregister_camera
 
-@persistent
-def on_blend_loaded(dummy):
-    """Handler que carga los previews desde caché al abrir un .blend."""
-    def delayed_load():
-        try:
-            cached_previews = load_previews_from_cache()
-            if cached_previews:
-                register_dropbox_previews(cached_previews)
-        except Exception as e:
-            print(f"[Dropbox] Error al cargar previews: {e}")
-        return None
 
-    bpy.app.timers.register(delayed_load, first_interval=1)
+custom_icons = None
+
+def register_icons():
+    import bpy.utils.previews
+    global custom_icons
+    custom_icons = bpy.utils.previews.new()
+
+    icons_dir = os.path.join(addon_dir, "visuals")
+    custom_icons.load("LC", os.path.join(icons_dir, "LC.png"), 'IMAGE')
+    custom_icons.load("note", os.path.join(icons_dir, "note_icon.png"), 'IMAGE')
+    custom_icons.load("draw", os.path.join(icons_dir, "draw_icon.png"), 'IMAGE')
+    custom_icons.load("setup_layout", os.path.join(icons_dir, "setupLayout_icon.png"), 'IMAGE')
+    custom_icons.load("alert", os.path.join(icons_dir, "alert_icon.png"), 'IMAGE')
+    custom_icons.load("trends", os.path.join(icons_dir, "get_trends_icon.png"), 'IMAGE')
+    custom_icons.load("youtube", os.path.join(icons_dir, "youtube_tutorial.png"), 'IMAGE')
+    bpy.types.WindowManager.custom_icons = custom_icons
+
+
+def unregister_icons():
+    global custom_icons
+    if custom_icons:
+        bpy.utils.previews.remove(custom_icons)
+        del bpy.types.WindowManager.custom_icons
+        custom_icons = None
+
 
 def register():
     addon_updater_ops.register(bl_info)
@@ -59,7 +71,6 @@ def register():
         RENDER_OT_QuickSetup,
         MESH_OT_FixMaterials,
         MESH_OT_EmissionView,
-        CHARACTER_OT_ApplyScaleToSelected,
         OBJECT_OT_AddDecimateModifier,
         OBJECT_OT_AddSmoothByAngle,
     ):
@@ -67,15 +78,13 @@ def register():
 
     register_extras()
     register_resource_import()
-    register_dropbox()
+    register_drive()
     register_update_character()
-    register_dropbox_collaboration()
+    register_drive_collaboration()
+    register_horns_resources()
     register_camera()
+    register_icons()
     ui.register_ui()
-    
-    if on_blend_loaded not in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.append(on_blend_loaded)
-
 
 def unregister():
     addon_updater_ops.unregister()
@@ -88,7 +97,6 @@ def unregister():
         RENDER_OT_QuickSetup,
         MESH_OT_FixMaterials,
         MESH_OT_EmissionView,
-        CHARACTER_OT_ApplyScaleToSelected,
         OBJECT_OT_AddDecimateModifier,
         OBJECT_OT_AddSmoothByAngle,
     )):
@@ -96,10 +104,10 @@ def unregister():
         
     unregister_extras()
     unregister_resource_import()
-    unregister_dropbox()
-    unregister_dropbox_collaboration()
+    unregister_drive()
+    unregister_drive_collaboration()
     unregister_update_character()
+    unregister_horns_resources()
     unregister_camera()
-     
-    if on_blend_loaded in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.remove(on_blend_loaded)
+    unregister_icons()
+    

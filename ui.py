@@ -2,8 +2,6 @@ import bpy
 import os
 from . import bl_info
 from . import addon_updater_ops
-from .addon_updater_ops import get_user_preferences
-from .dropbox.dropbox_oauth import get_temp_folder,cleanup_temp_files
 from .scene_utils import (
     is_any_object_visible_in_render,
     is_collection_exist,
@@ -12,39 +10,52 @@ from .scene_utils import (
     get_icon_by_leght,
     check_emitters_in_collection
 )
-from .dropbox.dropbox_oauth import get_active_dropbox_preview
+from .drive.drive_importer import get_active_drive_preview
+#region UTILS
 
 def draw_foldable_section(layout, title, icon, fold_prop_name, draw_content_fn, context):
     scene = context.scene
-    fold_state = getattr(scene, fold_prop_name)
+    fold_state = getattr(scene.fold_settings, fold_prop_name)
     box = layout.box()
     header = box.row()
-    header.prop(scene, fold_prop_name, icon='TRIA_DOWN' if fold_state else 'TRIA_RIGHT', icon_only=True, emboss=True)
+    header.prop(scene.fold_settings, fold_prop_name, icon='TRIA_DOWN' if fold_state else 'TRIA_RIGHT', icon_only=True, emboss=True)
     header.label(text=title, icon=icon)
     if fold_state:
         inner = box.box()
-        draw_content_fn(inner, context)
+        icons = getattr(context.window_manager, "custom_icons", None)
+        draw_content_fn(inner, context,icons)
 
 def draw_informative_box(col,info,active):
     if active:
         box = col.box()
-        box.label(text=info, icon="INFO_LARGE")
+        lines = info.split("\n")
+        for line in lines:
+            box.label(text=line, icon='INFO_LARGE')
         col.separator()
 
-def draw_layout_status_content(layout, context):
+
+def draw_youtube_info(row,_icon,url):
+    row.operator("wm.url_open", icon_value=_icon).url = url
+    
+#endregion
+
+
+#region PANEL DEFINITIONS
+
+def draw_layout_status_content(layout, context,icons):
     scene = context.scene
     row = layout.row()
-    row.operator("render.quick_setup", text="Setup layout", icon='SETTINGS')
-    row.prop(scene, "show_render_status", toggle=True, icon="HIDE_OFF" if scene.show_render_status else "HIDE_ON")
-    
+    row.operator("render.quick_setup", text="Setup layout", icon_value=icons["setup_layout"].icon_id)
+    row.prop(scene.show_settings, "render_status", toggle=True, icon="HIDE_OFF" if scene.show_settings.render_status else "HIDE_ON")
     col = layout.column(align=True)
 
     ##recuerdo  COLOR_01 ES ROJO 
-    if scene.show_render_status:
+    if scene.show_settings.render_status:
         
         icon_bd_version = 'STRIP_COLOR_01' if not bpy.app.version == (4, 5, 3) else 'STRIP_COLOR_04'
-        col.label(text="Blender version", icon=icon_bd_version)
-        
+        row = col.row()
+        row.label(text="Blender version", icon=icon_bd_version)
+        draw_youtube_info(row,icons["youtube"].icon_id,"https://youtu.be/JiDDLQkjKvU?list=PLJnbM9GLGL-p0A9zpAo08OjqCHfNlJ0Ef")
         ##-----------------------
         scene_count = len(bpy.data.scenes)
         exceedScenes = scene_count > 1
@@ -89,66 +100,76 @@ def draw_layout_status_content(layout, context):
         row = layout.row()
         icon, info = get_icon_by_leght(total_frames)
        
-        row.prop(scene, "show_leght_info", text="", icon=icon)
-        if scene.show_leght_info:
+        row.prop(scene.show_settings, "leght_info", text="", icon=icon)
+        if scene.show_settings.leght_info:
             layout.row().label(text=info)
             
         row.label(text= f"{seconds:.2f} seconds", icon="TIME")
-        
-        ##elapsed = int(time.time() - scene.session_start_time)
-        ##hours = elapsed // 3600
-        ##minutes = (elapsed % 3600) // 60
-        ##row = layout.row(alignment="CENTER")
-        ##row.label(text="Blender time:")
-        ##row.label(text=f"{hours:02d}:{minutes:02d} (hh:mm)")
 
-def draw_props_settings_content(layout, context):
+def draw_props_settings_content(layout, context,icons):
     scene = context.scene
-    layout.prop(scene, "show_advance_prop_settings", toggle=True, icon="HIDE_OFF" if scene.show_advance_prop_settings else "HIDE_ON")
-
-    if scene.show_advance_prop_settings:
-        layout.prop(scene, "remove_doubles", text="Remove double vertices")
-        layout.prop(scene, "remove_empties", text="Remove emptys")
-        layout.prop(scene, "add_in_collection", text="Create collection")
-        layout.prop(scene, "mergeObjects", text="Merge meshes")
-        layout.prop(scene, "only_selected_objects", text="Only selected objects")
+    title = layout.row(align=True)
+    title.prop(scene.show_settings, "advance_prop_settings", toggle=True, icon="HIDE_OFF" if scene.show_settings.advance_prop_settings else "HIDE_ON")
+    draw_youtube_info(title,icons["youtube"].icon_id,"https://youtu.be/kVD8lQowyzE")
+    if scene.show_settings.advance_prop_settings:
+        box = layout.box()
+        col = box.column(align=True)
+        col.prop(scene.props_advanced_settings, "remove_doubles", text="Remove double vertices")
+        col.prop(scene.props_advanced_settings, "remove_empties", text="Remove emptys")
+        col.prop(scene.props_advanced_settings, "add_in_collection", text="Create collection")
+        col.prop(scene.props_advanced_settings, "mergeObjects", text="Merge meshes")
+        col.prop(scene.props_advanced_settings, "only_selected_objects", text="Only selected objects")
+        col.prop(scene.props_advanced_settings, "add_final_empty", text="Add final empty")
         layout.separator(factor=0.5)
 
-    obj = context.active_object
-    if not obj:
-        layout.label(text="Ningún objeto seleccionado", icon='ERROR')
-    elif obj.type != 'MESH':
-        layout.label(text="El objeto no es una malla", icon='ERROR')
-    else:
-        mesh = obj.data
-        row = layout.row()
-        icon, info = get_icon_by_vertices(len(mesh.vertices))
-        row.prop(scene, "show_prop_helpInfo", text="", icon=icon)
-        if scene.show_prop_helpInfo:
-            layout.row().label(text=info)
-        row.label(text=f"Vertices: {len(mesh.vertices)}", icon='DOT')
-        row.label(text=f"Faces: {len(mesh.polygons)}", icon='MESH_CUBE')
+    selected_objects = context.selected_objects
 
-    layout.operator("mesh.analyze_mesh", text="Clean Prop", icon='TRASH')
+    if not selected_objects:
+        layout.label(text="Ningún objeto seleccionado", icon='ERROR')
+    else:
+        total_vertices = 0
+        total_faces = 0
+        mesh_objects = [obj for obj in selected_objects if obj.type == 'MESH']
+
+        if not mesh_objects:
+            layout.label(text="Los objetos seleccionados no son mallas", icon='ERROR')
+        else:
+            for obj in mesh_objects:
+                mesh = obj.data
+                total_vertices += len(mesh.vertices)
+                total_faces += len(mesh.polygons)
+
+            row = layout.row()
+            icon, info = get_icon_by_vertices(total_vertices)
+            row.prop(scene.show_settings, "prop_helpInfo", text="", icon=icon)
+            if scene.show_settings.prop_helpInfo:
+                layout.row().label(text=info)
+            row.label(text=f"Vertices: {total_vertices}", icon='DOT')
+            row.label(text=f"Faces: {total_faces}", icon='MESH_CUBE')
+   
+    cleanpropbutton = layout.row()
+    cleanpropbutton.scale_y = 1.3
+    cleanpropbutton.operator("mesh.analyze_mesh", text="Clean Prop", icon='TRASH')
+    layout.separator()
     row = layout.row()
     row.operator("mesh.fix_materials", text="Fix materials", icon='MATERIAL')
     row.operator("mesh.emission_view", icon="HIDE_OFF")
-    layout.separator()
     layout.operator("object.add_decimate_modifier", text="Add decimate", icon="MOD_DECIM")
     layout.operator("object.add_smooth_by_angle", text="Add Smooth by angle", icon="OUTLINER_OB_META")
     
-def draw_character_settings_content(layout, context):
+def draw_scale_settings_content(layout, context,icons):
     scene = context.scene
     
     box = layout.box()
-    box.label(text="Character Scales", icon='CON_SIZELIKE')
     row = box.row()
-    row.operator("cloud.get_name_list", icon="IMPORT")
-
+    row.label(text="Character Scales", icon='OUTLINER_OB_ARMATURE')
+    draw_youtube_info(row,icons["youtube"].icon_id,"https://youtu.be/HRrO4Oz1b3s")
+    row = box.row()
+    row.operator("cloud.get_character_list", icon="IMPORT")
     if hasattr(scene, "character_list_items"):
-        row.prop(scene, "show_character_list", toggle=True, icon="HIDE_OFF" if scene.show_character_list else "HIDE_ON")
+        row.prop(scene.show_settings, "character_list", toggle=True, icon="HIDE_OFF" if scene.show_settings.character_list else "HIDE_ON")
 
-        if scene.show_character_list:
+        if scene.show_settings.character_list:
             box.template_list("CHARACTERS_UL_List", "", scene, "character_list_items", scene, "character_list_index", rows=5)
 
             if scene.character_list_index >= 0 and len(scene.character_list_items) > scene.character_list_index:
@@ -160,43 +181,42 @@ def draw_character_settings_content(layout, context):
             row.prop(scene,"lock_character_loc",icon="LOCKED")
             row.prop(scene,"lock_character_rot",icon="LOCKED")
             row.prop(scene,"lock_character_scale",icon="LOCKED")
+            
+        box = layout.box()
+        row = box.row()
+        row.label(text="Map Scales", icon='WORLD')
+        draw_youtube_info(row,icons["youtube"].icon_id,"https://youtu.be/mIw_6MAmsXY")
+        row = box.row()
+        row.operator("cloud.get_map_list", icon="IMPORT")
 
-    box = layout.box()
-    row = box.row()
-    row.label(text="Character updater", icon='FILE_REFRESH')
-    
-    wm = context.window_manager
+        if hasattr(scene, "map_list_items"):
+            row.prop(scene.show_settings, "map_list", toggle=True, icon="HIDE_OFF" if scene.show_settings.map_list else "HIDE_ON")
 
-    row.prop(wm, "show_characterUpdater", toggle=True, icon="HIDE_OFF" if wm.show_characterUpdater else "HIDE_ON")
-    if wm.show_characterUpdater:
-        props = context.window_manager.uc_updated_character
+            if scene.show_settings.map_list:
+                box.template_list("MAPS_UL_List", "", scene, "map_list_items", scene, "map_list_index", rows=5)
 
-        if is_collection_exist("PERSONAJES"):
-            box.prop(props, "collection_enum", text="Old")
-        else:
-            box.label(text="Personajes deben estar dentro de PERSONAJES")
+                if scene.map_list_index >= 0 and len(scene.map_list_items) > scene.map_list_index:
+                    selected = scene.map_list_items[scene.map_list_index]
+                    box.label(text=f"Scale: {selected.scale:.4f}", icon='DOT')
 
-        box.prop(props, "new_collection", text="New")
-        if props.new_collection:
-            box.prop(props, "name_collection", text="Select")
-        box.operator("mesh.append_and_replace", icon="FILE_REFRESH")
+                box.operator("map.apply_scale_to_selected", text="Apply Scale", icon='CON_SIZELIKE')
 
-def draw_extras_content(layout, context):
+def draw_extras_content(layout, context,icons):
      scene = context.scene
      settings = scene.camera_frame_settings
      ln_settings = scene.layout_notes_settings
-     
+        
      box = layout.box()
      box.label(text="Layout notes", icon='FILE_TEXT')
      row = box.row(align=True)
-     row.operator("extra.create_note", text="Create note", icon="PLUS")
+     row.operator("extra.create_note", text="Create note", icon_value=icons["note"].icon_id)
      row.prop(ln_settings, "text_color", text="")
      
      rowgp = box.row(align=True)
-     rowgp.operator("extra.create_note_gp", text="Create draw", icon="GREASEPENCIL")
+     rowgp.operator("extra.create_note_gp", text="Create draw", icon_value=icons["draw"].icon_id)
      rowgp.prop(ln_settings, "grease_pencil_color", text="")
     
-     box.operator("extra.hide_notes", text="Hide note with keyframe", icon="HIDE_ON")
+     box.operator("extra.hide_notes", text="Hide with keyframe", icon="HIDE_ON")
      
      box = layout.box()
      box.label(text="Camera", icon='CAMERA_DATA')
@@ -209,7 +229,29 @@ def draw_extras_content(layout, context):
      box = layout.box()
      box.label(text="Particles", icon='PARTICLES')
      box.operator("extra.bake_particles", text="Bake all particles", icon='FILE_VOLUME')
-##---------------------PANELS----------------------------##
+
+     box = layout.box()
+     row = box.row()
+     row.label(text="Character updater", icon='FILE_REFRESH')
+    
+     wm = context.window_manager
+
+     row.prop(wm, "show_characterUpdater", toggle=True, icon="HIDE_OFF" if wm.show_characterUpdater else "HIDE_ON")
+     if wm.show_characterUpdater:
+        props = context.window_manager.uc_updated_character
+
+        if is_collection_exist("PERSONAJES"):
+            box.prop(props, "collection_enum", text="Old")
+        else:
+            draw_informative_box(box,"• Personajes deben estar dentro de PERSONAJES \n • No deben tener aplicado el scale a deltas!!",True)
+        box.prop(props, "new_collection", text="New")
+        if props.new_collection:
+            box.prop(props, "name_collection", text="Select")
+        box.operator("mesh.append_and_replace", icon="FILE_REFRESH")
+
+#endregion
+
+#------------------------------------------------- MAIN PANELS -------------------------------------------------#
 
 class RENDER_PT_QuickSetupPanel(bpy.types.Panel):
     bl_label = "Layout Companion!"
@@ -219,14 +261,19 @@ class RENDER_PT_QuickSetupPanel(bpy.types.Panel):
     bl_category = "Layout Companion"
 
     def draw_header(self, context):
-        self.layout.label(text="", icon="FUND")
+        icons = getattr(context.window_manager, "custom_icons", None)
+        if icons:
+            self.layout.label(text="", icon_value=icons["LC"].icon_id)
 
     def draw(self, context):
         layout = self.layout
         draw_foldable_section(layout, "LAYOUT STATUS", "BLENDER", "render_settings_fold", draw_layout_status_content, context)
         draw_foldable_section(layout, "PROPS SETTINGS", "MESH_DATA", "props_settings_fold", draw_props_settings_content, context)
-        draw_foldable_section(layout, "CHARACTER SETTINGS", "OUTLINER_OB_ARMATURE", "characters_fold", draw_character_settings_content, context)
+        draw_foldable_section(layout, "SCALE SETTINGS", "CON_SIZELIKE", "scales_fold", draw_scale_settings_content, context)
         draw_foldable_section(layout, "EXTRAS", "POINTCLOUD_DATA", "extras_fold", draw_extras_content, context)
+
+
+#region RESOURCES
 
 def origin_import_type(scene, row):
     if scene.resource_import_origin_camera:
@@ -248,57 +295,80 @@ class RENDER_PT_Resources(bpy.types.Panel):
     def draw(self, context):
         scene = context.scene
         layout = self.layout
-        
-        tabs_row = layout.row(align=True)
+        icons = getattr(context.window_manager, "custom_icons", None)
+        tabs_row = layout.row(align=False)
         tabs_row.prop(scene, "resource_tabs", expand=True)
-        
+        draw_youtube_info(tabs_row,icons["youtube"].icon_id,"https://youtu.be/fDqLOPQNbY0")
         layout.separator()
         
+        icons = getattr(context.window_manager, "custom_icons", None)
         if scene.resource_tabs == 'RESOURCES':
-            draw_local_resources(layout, context)
-        elif scene.resource_tabs == 'DROPBOX PROPS':
-            draw_dropbox_resources(layout, context)
+            draw_local_resources(layout, context,icons)
+        elif scene.resource_tabs == 'DRIVE PROPS':
+            draw_drive_resources(layout, context,icons)
+        elif scene.resource_tabs == 'MANIQUIES':
+            draw_local_maniquies(layout, context,icons)
+        elif scene.resource_tabs == 'HORNS FILES':
+            draw_horns_resources(layout, context,icons)
 
-def draw_local_resources(layout, context):
+def draw_local_resources(layout, context,icons):
     scene = context.scene
     wm = context.window_manager
 
     resourceBox = layout.box()
-    resourceBox.template_icon_view(wm, "collection_preview_enum")
-    if wm.collection_preview_enum:
+    resourceBox.template_icon_view(wm, "res_effects_preview_enum")
+    if wm.res_effects_preview_enum:
         box = resourceBox.box()
-        box.label(text=wm.collection_preview_enum)
+        box.label(text=wm.res_effects_preview_enum)
         row = box.row(align=True)
-        row.scale_y = 1.2
+        row.scale_y = 1.3
         row.operator("resource.import_selected", icon="IMPORT")
         origin_import_type(scene, row)
     else:
         resourceBox.label(text="No hay previews disponibles")
-
-def draw_dropbox_resources(layout, context):
+        
+        
+def draw_local_maniquies(layout, context,icons):
     scene = context.scene
     wm = context.window_manager
-    prefs = get_user_preferences(context)
 
+    resourceBox = layout.box()
+    resourceBox.template_icon_view(wm, "res_maniques_preview_enum")
+    if wm.res_maniques_preview_enum:
+        box = resourceBox.box()
+        box.label(text=wm.res_maniques_preview_enum)
+        row = box.row(align=True)
+        row.scale_y = 1.3
+        row.operator("resource.import_selected", icon="IMPORT")
+        origin_import_type(scene, row)
+    else:
+        resourceBox.label(text="No hay previews disponibles")
+        
+
+def draw_drive_resources(layout, context,icons):
+    scene = context.scene
+    wm = context.window_manager
+    
     box = layout.box()
-
+    box.label(text="Bajo desarrollo: El tiempo de espera es elevado (tu blender se congelara varios segundos)", icon_value=icons["alert"].icon_id)
+    box = layout.box()
     propBox = box.box()
     searchrow = propBox.row(align=True)
-    searchrow.operator("prop.dropbox_refresh_previews", icon='FILE_REFRESH')
-    searchrow.prop(wm, "dropbox_search", text="", icon='VIEWZOOM')
-    searchrow.prop(scene, "dropbox_advance_settings", text="",icon="TOOL_SETTINGS")
-    if scene.dropbox_advance_settings:
+    searchrow.operator("prop.drive_refresh_previews", icon='FILE_REFRESH')
+    searchrow.prop(wm, "drive_search", text="", icon='VIEWZOOM')
+    searchrow.prop(scene, "drive_advance_settings", text="",icon="TOOL_SETTINGS")
+    if scene.drive_advance_settings:
         deleterow = propBox.row()
-        deleterow.label(text="Eliminar el prop seleccionado de Dropbox")
-        deleterow.operator("prop.dropbox_delete", text="", icon='TRASH')
+        deleterow.label(text="Eliminar el prop seleccionado del drive")
+        deleterow.operator("prop.drive_delete", text="", icon='TRASH')
     
         cache_size_mb = get_cache_size_mb()
         propBox.operator("props.cleanup_cache", text=f"Limpiar caché {cache_size_mb:.2f} MB", icon='TRASH')
     
-    propBox.template_icon_view(wm, "dropbox_preview_enum")
+    propBox.template_icon_view(wm, "drive_preview_enum")
 
-    if hasattr(wm, "dropbox_preview_enum") and wm.dropbox_preview_enum:
-        preview = get_active_dropbox_preview(context)
+    if hasattr(wm, "drive_preview_enum") and wm.drive_preview_enum:
+        preview = get_active_drive_preview(context)
         col = propBox.column(align=True)
         if preview:
             col.label(text=f"{preview.name}", icon="OBJECT_DATA")
@@ -315,13 +385,89 @@ def draw_dropbox_resources(layout, context):
 
             box = propBox.box()
             row = box.row(align=True)
-            row.scale_y = 1.2
-            row.operator("prop.dropbox_import_blend", icon='IMPORT')
+            row.scale_y = 1.3
+            row.operator("prop.drive_import_blend", icon='IMPORT')
             origin_import_type(scene, row)
         else:
             col.label(text="Preview no encontrado")
     else:
         propBox.label(text="No hay previews disponibles")
+
+
+def draw_horns_resources(layout, context,icons):
+    scene = context.scene
+    
+    box = layout.box()
+    devbox = box.box()
+    devbox.label(text="Actualmente en desarrollo (Se puede usar)", icon_value=icons["alert"].icon_id)
+    if hasattr(scene, "files_list_items"):
+        if len(scene.files_list_items) > 0:
+            row = box.row(align=True)
+            
+            if scene.drive_main_page:
+                row.operator("drive.refresh_folders",text="Reload", icon='FILE_REFRESH')
+            else:
+                row.operator("drive.refresh_folders",text="Home", icon='HOME')
+                  
+            row.operator("drive.open_folder",text="Open trend",icon='FRAME_NEXT')
+           
+            row = box.row(align=True)
+            row.prop(scene, "files_list_filter", text="", icon='VIEWZOOM')
+            row.operator("drive.clear_filter", text="", icon='X')
+                
+            row.prop(scene, "horns_advance_settings", text="",icon="TOOL_SETTINGS")
+            if scene.horns_advance_settings:
+                settingsbox = box.row(align=True)
+                settingsbox.prop(scene, "get_json_automatically", text="Get info automatically",icon="TRIA_DOWN_BAR")
+                settingsbox.prop(scene, "show_horns_thumbnail", text="Show preview",icon="OUTLINER_OB_IMAGE")
+                
+            box.template_list("FILES_UL_List", "", scene, "files_list_items", scene, "files_list_index", rows=5)
+           
+            if not scene.drive_main_page:
+                infobox = box.box()
+                idx = scene.files_list_index
+
+                if 0 <= idx < len(scene.files_list_items):
+                    item = scene.files_list_items[idx]
+                    if item.json_loaded:
+                        col = infobox.column(align=True)
+                        col.label(text=f"Type: {item.type}", icon='FILE_FOLDER')
+                        col.label(text=f"Rigger: {item.rigger}", icon='USER')
+                        col.label(text=f"Last update: {item.last_update}", icon='TIME')
+                        if item.version:
+                            col.label(text=f"Version: v{item.version}", icon='INFO')
+                                                
+                    if item.thumb_icon and scene.show_horns_thumbnail:
+                        from .drive import horns_resources
+                        pcoll = horns_resources.get_preview_collection()
+                        
+                        if item.thumb_icon in pcoll:
+                            preview = pcoll[item.thumb_icon]
+                            thumb_box = col.box()
+                            thumb_col = thumb_box.column(align=True)
+                            thumb_col.template_icon(icon_value=preview.icon_id, scale=12.0)
+                        else:
+                            col.box().label(text="No thumbnail available", icon='IMAGE_DATA')
+                                
+                    else:
+                        if scene.get_json_automatically:
+                            infobox.label(text="No existe info de este archivo", icon='INFO')
+                        else:
+                            infobox.label(text="La opcion de cargar info automaticamente esta desactivada", icon='INFO')
+
+                    row = box.row()
+                    row.scale_y = 1.3
+                    row.operator("drive.import_file", icon='IMPORT')
+                    origin_import_type(scene, row)
+                else:
+                    infobox.label(text="Seleccione un elemento válido", icon='INFO')
+        else:
+            box.operator("drive.list_main_folders", icon_value=icons["trends"].icon_id)
+
+#endregion
+
+
+#region COLLABS
 
 def show_collab_guideline(layout):
     box = layout.box()
@@ -335,7 +481,7 @@ def show_collab_guideline(layout):
     tips_box.label(text="• Evita subir el mismo prop que otros colaboradores.")
     tips_box.label(text="• Nombre del prop en ingles. Descripcion: (ingles o español).")
     tips_box.label(text="• Se creativo :)")
-    
+
 def collab_prop_status(layout, ready):
     icon = 'STRIP_COLOR_01' if not ready else 'STRIP_COLOR_04'
     layout.label(text="",icon = icon)
@@ -377,8 +523,6 @@ class RENDER_PT_Collab(bpy.types.Panel):
         row = previewbox.row()
         if scene.prop_preview_tex:
             row.template_preview(scene.prop_preview_tex, show_buttons=False)
-        else:
-            row.label(text="No preview image yet... select from pc, or make a render")
         
         idrow = databox.row()
         idrow.prop(scene, "prop_idname", text="ID")
@@ -412,8 +556,14 @@ class RENDER_PT_Collab(bpy.types.Panel):
         databox.separator()
         row = databox.row()
         row.scale_y = 2
-        row.operator("prop.collab_export", icon="EXPORT")
+        row.operator("prop.drive_export", icon="EXPORT")
         
+        
+#endregion
+
+
+#region ABOUT & UPDATER
+ 
 class RENDER_PT_About(bpy.types.Panel):
     bl_label = "About"
     bl_idname = "RENDER_PT_About"
@@ -431,7 +581,7 @@ class RENDER_PT_About(bpy.types.Panel):
         layout.label(text="Version: " + version_str)
         layout.operator("wm.url_open", text="Visit GitHub").url = "https://github.com/Arciwise2000/layout_companion"
 
-   
+
 @addon_updater_ops.make_annotations
 class RENDER_PT_UpdaterPreferences(bpy.types.AddonPreferences):
     bl_idname = __package__
@@ -461,6 +611,7 @@ class RENDER_PT_UpdaterPreferences(bpy.types.AddonPreferences):
         addon_updater_ops.update_settings_ui(self, context)
 
 def get_cache_size_mb():
+        from .drive.drive_importer import get_temp_folder
         temp_folder = get_temp_folder()
         total_size = 0
         for root, dirs, files in os.walk(temp_folder):
@@ -470,6 +621,10 @@ def get_cache_size_mb():
                     total_size += os.path.getsize(fp)
         return total_size / (1024 * 1024)  # Convertir a MB
 
+#endregion
+
+
+#region REGISTERS
 
 classes =(
     RENDER_PT_QuickSetupPanel,
@@ -486,5 +641,5 @@ def register_ui():
 def unregister_ui():
     for cls in reversed(classes):
         bpy.utils.unregister_class(cls)
-        
-        
+
+#endregion

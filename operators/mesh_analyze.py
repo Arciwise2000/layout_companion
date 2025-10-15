@@ -35,14 +35,12 @@ class MESH_OT_AnalyzeMesh(bpy.types.Operator):
             collect(obj)
             return meshes
 
-        # Si tiene un EMPTY como parent
         if selected_obj.parent and selected_obj.parent.type == 'EMPTY':
             parent_empty = self.find_top_parent(selected_obj)
             if parent_empty:
                 return collect_meshes_from_empty(parent_empty)
 
-        # Si está activado el modo "solo objetos seleccionados"
-        if scene.only_selected_objects:
+        if scene.props_advanced_settings.only_selected_objects:
             selected_meshes = []
             for obj in context.selected_objects:
                 if obj.type == 'MESH':
@@ -54,7 +52,7 @@ class MESH_OT_AnalyzeMesh(bpy.types.Operator):
                     })
             return selected_meshes
 
-        # Si no está activado el modo y no tiene EMPTY
+        
         elif selected_obj.type == 'MESH' and selected_obj.users_collection:
             target_col = selected_obj.users_collection[0]
             meshes = []
@@ -67,8 +65,6 @@ class MESH_OT_AnalyzeMesh(bpy.types.Operator):
                         'original_collections': list(obj.users_collection)
                     })
             return meshes
-
-        # Fallback: solo el objeto actual
         return [{
             'object': selected_obj,
             'matrix_world': selected_obj.matrix_world.copy(),
@@ -86,7 +82,7 @@ class MESH_OT_AnalyzeMesh(bpy.types.Operator):
         bm.to_mesh(mesh)
         bm.free()
         mesh.update()
-        # Limpiar normales personalizadas si existen
+        
         if hasattr(mesh, "normals_split_custom_set"):
             try:
                 mesh.normals_split_custom_set(None)
@@ -118,7 +114,7 @@ class MESH_OT_AnalyzeMesh(bpy.types.Operator):
             if parent_empty:
                 parent_empty_name = parent_empty.name
         
-        if scene.remove_empties and parent_empty:
+        if scene.props_advanced_settings.remove_empties and parent_empty:
             bpy.ops.object.select_all(action='DESELECT')
             def select_emptys(obj):
                 if obj.type == 'EMPTY':
@@ -134,7 +130,7 @@ class MESH_OT_AnalyzeMesh(bpy.types.Operator):
             obj = data['object']
             obj.matrix_world = data['matrix_world']
 
-            self.clean_mesh_bmesh(obj, remove_doubles=scene.remove_doubles)
+            self.clean_mesh_bmesh(obj, remove_doubles=scene.props_advanced_settings.remove_doubles)
             self.tris_to_quads_bmesh(obj)
 
             # Seleccionar solo el objeto y asegurarse de estar en modo OBJECT
@@ -148,7 +144,7 @@ class MESH_OT_AnalyzeMesh(bpy.types.Operator):
             bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
             bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
        
-        if scene.mergeObjects and len(mesh_data) > 1:
+        if scene.props_advanced_settings.mergeObjects and len(mesh_data) > 1:
             bpy.ops.object.select_all(action='DESELECT')
             for data in mesh_data:
                 data['object'].select_set(True)
@@ -163,7 +159,7 @@ class MESH_OT_AnalyzeMesh(bpy.types.Operator):
         else:
             final_objects = [data['object'] for data in mesh_data]
                 
-        if scene.add_in_collection:
+        if scene.props_advanced_settings.add_in_collection:
             if len(final_objects) == 1:
                 uniqueObjName = final_objects[0].name
             else:

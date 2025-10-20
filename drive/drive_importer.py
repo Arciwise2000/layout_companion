@@ -55,13 +55,17 @@ def get_drive_service():
     from google_auth_oauthlib.flow import InstalledAppFlow
     from google.auth.transport.requests import Request
     from googleapiclient.discovery import build
-    
+    import base64, json
+    from pathlib import Path
+
     global SHARED_FOLDER_ID
     
+    # Cargar config de log.json
     cfg_data = None
     with open(Path(__file__).parent / "log.json", "r") as f:
         cfg_data = json.load(f)["installed"]
         
+    # Cargar ID de carpeta compartida
     load_drive_config()
 
     creds = None
@@ -70,13 +74,8 @@ def get_drive_service():
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            
             try:
-                c_s = base64.b64decode(CS_ID).decode('utf-8')
-                creds.client_secret = c_s 
-                
                 creds.refresh(Request())
-                
             except Exception as e:
                 print(f"Error al intentar refrescar el token: {e}. Iniciando autenticación completa.")
                 creds = None
@@ -90,6 +89,7 @@ def get_drive_service():
             
             creds = flow.run_local_server(port=0)
 
+        # Guardar token
         with open(TOKEN_PATH, "w") as token:
             token.write(creds.to_json())
         
@@ -239,7 +239,7 @@ def fetch_drive_assets():
 def download_file_session(session, file_id, local_path):
     url = f"https://www.googleapis.com/drive/v3/files/{file_id}?alt=media"
     
-    with session.get(url, stream=True, timeout=60) as r:
+    with session.get(url, stream=True, timeout=30) as r:
         r.raise_for_status()
         with open(local_path, "wb") as f:
             for chunk in r.iter_content(131072):

@@ -1,0 +1,5 @@
+__pycache__/
+.log
+token.json
+layout_companion-main_updater/
+README.md

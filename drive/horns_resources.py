@@ -30,10 +30,12 @@ class FilesListItem(bpy.types.PropertyGroup):
 
 class FILES_UL_List(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
-        ext = Path(item.name).suffix.lower()
         
-        if ext == ".json":
+        item_name = Path(item.name).stem
+        if item_name.lower().endswith(".blend"):
             icon_name = 'BLENDER'
+        elif item_name.lower().endswith(".rar") or item_name.lower().endswith(".zip"): 
+            icon_name = 'COMPRESSED'
         elif "." not in item.name:
             icon_name = 'FILE_FOLDER'
         else:
@@ -42,12 +44,18 @@ class FILES_UL_List(bpy.types.UIList):
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             display_name = Path(item.name).stem
             finalname = display_name
-            if ext == ".json":
-                finalname = display_name[:-6]
+            if finalname.lower().endswith(".json"):
+                finalname = finalname[:-5] # Remove the 5 characters: ".json"
+        
+            if finalname.lower().endswith(".blend"):
+                finalname = finalname[:-6] # Remove the 6 characters: ".blend"
                 
             row = layout.row(align=True)
-            row.label(text=finalname, icon=icon_name)
-            
+            if icon_name != "COMPRESSED":
+                row.label(text=finalname, icon=icon_name)
+            else:
+                custom_icons = getattr(context.window_manager, "custom_icons", None)
+                row.label(text=finalname, icon_value=custom_icons["compressed"].icon_id)
             if item.version:
                 row.label(text=f"v{item.version}", icon='INFO')
                 
@@ -446,7 +454,7 @@ class DRIVE_OT_EnterToFolder(bpy.types.Operator):
                 self.report({'INFO'}, f"La carpeta '{selected_folder.name}' está vacía")
                 return {'CANCELLED'}
 
-            excluded_extensions = {'.blend', '.png', '.jpg', '.jpeg', '.rar', '.zip', '.txt', '.pdf'}
+            excluded_extensions = {'.blend', '.png', '.jpg', '.jpeg', '.txt', '.pdf'}
             filtered_files = [
                 f for f in all_files
                 if f["name"].lower().endswith('.json') and 
@@ -454,7 +462,7 @@ class DRIVE_OT_EnterToFolder(bpy.types.Operator):
             ]
 
             if len(filtered_files) == 0:
-                self.report({'INFO'}, f"No hay archivos .json en '{selected_folder.name}'")
+                self.report({'INFO'}, f"No hay archivos en '{selected_folder.name}'")
                 return {'CANCELLED'}
 
             for f in filtered_files:
@@ -491,11 +499,7 @@ class DRIVE_OT_ImportFile(bpy.types.Operator):
     def poll(cls, context):
         scene = context.scene
         idx = scene.files_list_index
-        
-        if len(scene.files_list_items) == 0 or idx < 0 or idx >= len(scene.files_list_items):
-            return False
-        else:
-            return True
+        return not (len(scene.files_list_items) == 0 or idx < 0 or idx >= len(scene.files_list_items))
 
     def execute(self, context):
         scene = context.scene
@@ -513,7 +517,12 @@ class DRIVE_OT_ImportFile(bpy.types.Operator):
         if not selected_item.file_id:
             self.report({'ERROR'}, "No se encontró el link del archivo .blend en el JSON")
             return {'CANCELLED'}
-
+        
+        item_name = Path(selected_item.name).stem
+        if item_name.lower().endswith(".rar") or item_name.lower().endswith(".zip"):
+            url = f"https://drive.google.com/file/d/{selected_item.file_id}/view?usp=drivesdk"
+            bpy.ops.wm.url_open(url=url)
+            return {'FINISHED'}
         try:
             import_blend_from_drive(
                 context, 
@@ -521,12 +530,11 @@ class DRIVE_OT_ImportFile(bpy.types.Operator):
                 type=selected_item.type
             )
             
-            self.report({'INFO'}, f"✓ {selected_item.name} importado")
+            self.report({'INFO'}, f"✓ {item_name} importado")
             return {'FINISHED'}
 
         except Exception as e:
-            self.report({'ERROR'}, f"Error: {str(e)}")
-            print(f"[Drive] Error importando: {e}")
+            self.report({'ERROR'}, f"Error importando: {str(e)}")
             return {'CANCELLED'}
 
 
@@ -564,7 +572,6 @@ class DRIVE_OT_ClearFilter(bpy.types.Operator):
 #region UTILITIES
 
 def clean_folders(context):
-    """Limpia la lista de archivos y previews"""
     scene = context.scene
     scene.files_list_items.clear()
     bpy.ops.drive.clear_filter()

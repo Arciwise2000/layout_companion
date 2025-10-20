@@ -1,6 +1,6 @@
 bl_info = {
     "name": "Layout Companion",
-    "version": (1, 9, 1),
+    "version": (1, 9, 2),
     "author": "Arciwise",
     "blender": (4, 5, 0),
     "location": "View3D > Sidebar > Layout Companion",
@@ -50,6 +50,8 @@ def register_icons():
     custom_icons.load("alert", os.path.join(icons_dir, "alert_icon.png"), 'IMAGE')
     custom_icons.load("trends", os.path.join(icons_dir, "get_trends_icon.png"), 'IMAGE')
     custom_icons.load("youtube", os.path.join(icons_dir, "youtube_tutorial.png"), 'IMAGE')
+    custom_icons.load("search", os.path.join(icons_dir, "search_icon.png"), 'IMAGE')
+    custom_icons.load("compressed", os.path.join(icons_dir, "compressed.png"), 'IMAGE')
     bpy.types.WindowManager.custom_icons = custom_icons
 
 

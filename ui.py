@@ -2,13 +2,15 @@ import bpy
 import os
 from . import bl_info
 from . import addon_updater_ops
+from pathlib import Path
 from .scene_utils import (
     is_any_object_visible_in_render,
     is_collection_exist,
     get_icon_by_vertices,
     file_exists_in_blend_directory,
     get_icon_by_leght,
-    check_emitters_in_collection
+    check_emitters_in_collection,
+    check_collections_disable
 )
 from .drive.drive_importer import get_active_drive_preview
 #region UTILS
@@ -25,12 +27,16 @@ def draw_foldable_section(layout, title, icon, fold_prop_name, draw_content_fn, 
         icons = getattr(context.window_manager, "custom_icons", None)
         draw_content_fn(inner, context,icons)
 
-def draw_informative_box(col,info,active):
+def draw_informative_box(col, info, active):
     if active:
         box = col.box()
+        box.scale_y = 0.5  # Reduce el espacio de toda la caja
         lines = info.split("\n")
-        for line in lines:
-            box.label(text=line, icon='INFO_LARGE')
+        for i, line in enumerate(lines):
+            if i == 0:
+                box.label(text=line, icon='INFO_LARGE')
+            else:
+                box.label(text=line)
         col.separator()
 
 
@@ -41,7 +47,7 @@ def draw_youtube_info(row,_icon,url):
 
 
 #region PANEL DEFINITIONS
-
+#A MESSSSSS
 def draw_layout_status_content(layout, context,icons):
     scene = context.scene
     row = layout.row()
@@ -57,18 +63,34 @@ def draw_layout_status_content(layout, context,icons):
         row.label(text="Blender version", icon=icon_bd_version)
         draw_youtube_info(row,icons["youtube"].icon_id,"https://youtu.be/JiDDLQkjKvU?list=PLJnbM9GLGL-p0A9zpAo08OjqCHfNlJ0Ef")
         ##-----------------------
+       
         scene_count = len(bpy.data.scenes)
         exceedScenes = scene_count > 1
         icon_scene_count = 'STRIP_COLOR_04' if not exceedScenes else 'STRIP_COLOR_01'
             
         col.label(text="One scene", icon=icon_scene_count)
-        draw_informative_box(col,"Hay una escena extra en el Blend. Eliminalo para evitar problemas de render!",exceedScenes)
+        draw_informative_box(col,"Hay una escena extra en el Blend.\n Eliminalo para evitar problemas de render!",exceedScenes)
+        
+        ##-----------------------
+        all_characters_in_use = check_collections_disable("PERSONAJES")
+        icon_all_charaters_in_use = 'STRIP_COLOR_04' if all_characters_in_use else 'STRIP_COLOR_01'
+        col.label(text="All characters enabled", icon=icon_all_charaters_in_use)
+        characterCollectionAvaible = is_collection_exist("PERSONAJES")
+        if characterCollectionAvaible:
+            draw_informative_box(col,"Hay personajes sin uso, borralos!", not all_characters_in_use)
+        else:
+            draw_informative_box(col,"No existe la collection 'PERSONAJES'.\n Crea o renombra algun collection con ese nombre",True)
+        ##-----------------------
+        startIn = bpy.context.scene.frame_start == 1
+        icon_start_frame = 'STRIP_COLOR_04' if startIn else 'STRIP_COLOR_01'
+        col.label(text="Starting frame", icon=icon_start_frame)
+        draw_informative_box(col,"El frame de inicio no empieza en 1. \n Asegurate que el rango de playblack empiece desde el frame 1, ",not startIn)
         ##-----------------------
         cameraCollectionAvaible = is_collection_exist("CAMARA")
         dof_text = "DOF in camera collection"
         if not cameraCollectionAvaible:
             col.label(text="'CAMARA' Collection in scene", icon="STRIP_COLOR_01")
-            draw_informative_box(col,"No existe la collection 'CAMARA'. Crea o renombra algun collection con ese nombre",True)
+            draw_informative_box(col,"No existe la collection 'CAMARA'. \n Crea o renombra algun collection con ese nombre",True)
         elif cameraCollectionAvaible.objects.get("DOF"):
             col.label(text=dof_text, icon="STRIP_COLOR_04")
         else:
@@ -78,16 +100,16 @@ def draw_layout_status_content(layout, context,icons):
         isVisibleOnRender = is_any_object_visible_in_render("NOTAS_LAYOUT")
         icon_render = 'STRIP_COLOR_04' if not isVisibleOnRender else 'STRIP_COLOR_01'
         col.label(text="Visible layout notes", icon=icon_render)
-        draw_informative_box(col,"Hay objetos con visibilidad en render dentro de 'NOTAS LAYOUT'. Apagalas!",isVisibleOnRender)
+        draw_informative_box(col,"Hay objetos con visibilidad en render dentro de 'NOTAS LAYOUT'.\n Apagalas!",isVisibleOnRender)
         ##-----------------------
         chacheParticles = check_emitters_in_collection()
         icon_particle = 'STRIP_COLOR_04' if not chacheParticles else 'STRIP_COLOR_01'
         col.label(text="Cache particles", icon=icon_particle)
-        draw_informative_box(col,"Existen particulas sin bakear! Usa 'bake all particles' o bakea las particulas faltantes",chacheParticles)
+        draw_informative_box(col,"Existen particulas sin bakear!\nUsa 'bake all particles' o bakea las particulas faltantes",chacheParticles)
         ##-----------------------
         icon_rsc_pack = 'STRIP_COLOR_01' if not bpy.data.use_autopack else 'STRIP_COLOR_04'
         col.label(text="Automatically pack resource", icon=icon_rsc_pack)
-        draw_informative_box(col,"Las imagenes no se guardaran con tu blend! Activa 'Automatically pack resource' o pulsa el boton 'Setup Layout'",not bpy.data.use_autopack)
+        draw_informative_box(col,"Las imagenes no se guardaran con tu blend!\n Activa 'Automatically pack resource' o pulsa el boton 'Setup Layout'",not bpy.data.use_autopack)
         ##-----------------------
         hasRenderNotes = file_exists_in_blend_directory("NOTAS RENDER.txt")
         icon_layout_note = 'STRIP_COLOR_09' if not hasRenderNotes else 'STRIP_COLOR_04'
@@ -116,10 +138,12 @@ def draw_props_settings_content(layout, context,icons):
         col = box.column(align=True)
         col.prop(scene.props_advanced_settings, "remove_doubles", text="Remove double vertices")
         col.prop(scene.props_advanced_settings, "remove_empties", text="Remove emptys")
-        col.prop(scene.props_advanced_settings, "add_in_collection", text="Create collection")
         col.prop(scene.props_advanced_settings, "mergeObjects", text="Merge meshes")
+        col.separator(factor=0.4)
         col.prop(scene.props_advanced_settings, "only_selected_objects", text="Only selected objects")
-        col.prop(scene.props_advanced_settings, "add_final_empty", text="Add final empty")
+        col.separator(factor=0.4)
+        col.prop(scene.props_advanced_settings, "add_in_collection", text="Create collection")
+        col.prop(scene.props_advanced_settings, "add_final_empty", text="Create final empty")
         layout.separator(factor=0.5)
 
     selected_objects = context.selected_objects
@@ -216,7 +240,7 @@ def draw_extras_content(layout, context,icons):
      rowgp.operator("extra.create_note_gp", text="Create draw", icon_value=icons["draw"].icon_id)
      rowgp.prop(ln_settings, "grease_pencil_color", text="")
     
-     box.operator("extra.hide_notes", text="Hide with keyframe", icon="HIDE_ON")
+     box.operator("extra.zero_scale", text="Set scale to zero", icon="HIDE_ON")
      
      box = layout.box()
      box.label(text="Camera", icon='CAMERA_DATA')
@@ -225,6 +249,7 @@ def draw_extras_content(layout, context,icons):
      row.prop(settings, "enabled", toggle=True, icon="RESTRICT_VIEW_OFF" if settings.enabled else "RESTRICT_VIEW_ON")
      row.prop(settings, "color", text="")
      row.prop(settings, "width", text="")
+     box.operator("extra.move_camera", text="Move dolly rig", icon='CON_CAMERASOLVER')
      
      box = layout.box()
      box.label(text="Particles", icon='PARTICLES')
@@ -243,7 +268,7 @@ def draw_extras_content(layout, context,icons):
         if is_collection_exist("PERSONAJES"):
             box.prop(props, "collection_enum", text="Old")
         else:
-            draw_informative_box(box,"• Personajes deben estar dentro de PERSONAJES \n • No deben tener aplicado el scale a deltas!!",True)
+            draw_informative_box(box," Personajes deben estar dentro de PERSONAJES \n No deben tener aplicado el scale a deltas!!",True)
         box.prop(props, "new_collection", text="New")
         if props.new_collection:
             box.prop(props, "name_collection", text="Select")
@@ -355,7 +380,7 @@ def draw_drive_resources(layout, context,icons):
     propBox = box.box()
     searchrow = propBox.row(align=True)
     searchrow.operator("prop.drive_refresh_previews", icon='FILE_REFRESH')
-    searchrow.prop(wm, "drive_search", text="", icon='VIEWZOOM')
+    searchrow.prop(wm, "drive_search", text="", icon_value=icons["search"].icon_id)
     searchrow.prop(scene, "drive_advance_settings", text="",icon="TOOL_SETTINGS")
     if scene.drive_advance_settings:
         deleterow = propBox.row()
@@ -412,7 +437,7 @@ def draw_horns_resources(layout, context,icons):
             row.operator("drive.open_folder",text="Open trend",icon='FRAME_NEXT')
            
             row = box.row(align=True)
-            row.prop(scene, "files_list_filter", text="", icon='VIEWZOOM')
+            row.prop(scene, "files_list_filter", text="", icon_value=icons["search"].icon_id)
             row.operator("drive.clear_filter", text="", icon='X')
                 
             row.prop(scene, "horns_advance_settings", text="",icon="TOOL_SETTINGS")
@@ -429,25 +454,27 @@ def draw_horns_resources(layout, context,icons):
 
                 if 0 <= idx < len(scene.files_list_items):
                     item = scene.files_list_items[idx]
+                    row_info = infobox.row(align=True)  # fila horizontal
+                    row_info.scale_y = 1.2
                     if item.json_loaded:
-                        col = infobox.column(align=True)
-                        col.label(text=f"Type: {item.type}", icon='FILE_FOLDER')
-                        col.label(text=f"Rigger: {item.rigger}", icon='USER')
-                        col.label(text=f"Last update: {item.last_update}", icon='TIME')
+                        col_info = row_info.column(align=True)
+                        col_info.label(text=f"Type: {item.type}", icon='FILE_FOLDER')
+                        col_info.label(text=f"Rigger: {item.rigger}", icon='USER')
+                        col_info.label(text=f"Last update: {item.last_update}", icon='TIME')
                         if item.version:
-                            col.label(text=f"Version: v{item.version}", icon='INFO')
+                            col_info.label(text=f"Version: v{item.version}", icon='INFO')
                                                 
                     if item.thumb_icon and scene.show_horns_thumbnail:
                         from .drive import horns_resources
                         pcoll = horns_resources.get_preview_collection()
+                        col_thumb = row_info.column(align=True)
+                        col_thumb.alignment = 'RIGHT'
                         
                         if item.thumb_icon in pcoll:
                             preview = pcoll[item.thumb_icon]
-                            thumb_box = col.box()
-                            thumb_col = thumb_box.column(align=True)
-                            thumb_col.template_icon(icon_value=preview.icon_id, scale=12.0)
+                            col_thumb.template_icon(icon_value=preview.icon_id, scale=6.0)
                         else:
-                            col.box().label(text="No thumbnail available", icon='IMAGE_DATA')
+                            row_info.box().label(text="No thumbnail available", icon='IMAGE_DATA')
                                 
                     else:
                         if scene.get_json_automatically:
@@ -457,8 +484,12 @@ def draw_horns_resources(layout, context,icons):
 
                     row = box.row()
                     row.scale_y = 1.3
-                    row.operator("drive.import_file", icon='IMPORT')
-                    origin_import_type(scene, row)
+                    item_name = Path(item.name).stem
+                    if item_name.lower().endswith(".rar") or item_name.lower().endswith(".zip"):
+                        row.operator("drive.import_file",text="Go to drive", icon='INTERNET')
+                    else: 
+                        row.operator("drive.import_file",text="Import", icon='IMPORT')
+                        origin_import_type(scene, row)
                 else:
                     infobox.label(text="Seleccione un elemento válido", icon='INFO')
         else:

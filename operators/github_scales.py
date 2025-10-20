@@ -177,33 +177,25 @@ class MAP_OT_ApplyScaleToSelected(bpy.types.Operator):
             self.report({'INFO'}, f"Escala {selected_map.scale} aplicada al empty existente 'MAPA_SCALE'.")
             return {'FINISHED'}
             
-        def gather_objects_recursive(collection):
-            objs = []
+        def gather_objects_recursive(collection, result=None):
+            if result is None:
+                result = []
 
             if any(word.lower() in collection.name.lower() for word in ["instance", "instancia"]):
-                return objs
-
-            if getattr(collection, "hide_render", False):
-                print(f"[INFO] Collection '{collection.name}' ignorada (render deshabilitado).")
-                return objs
-            if getattr(collection, "hide_viewport", False):
-                print(f"[INFO] Collection '{collection.name}' ignorada (viewport oculto).")
-                return objs
+                return result
+            if getattr(collection, "hide_render", False) or getattr(collection, "hide_viewport", False):
+                return result
             if hasattr(collection, "hide_get") and collection.hide_get():
-                print(f"[INFO] Collection '{collection.name}' ignorada (oculto mediante hide_get).")
-                return objs
+                return result
 
-            if collection.hide_select:
-                collection.hide_select = False
-                print(f"[INFO] Se activó la selección de la colección: {collection.name}")
+            for obj in collection.objects:
+                if obj not in result:
+                    result.append(obj)
 
-            objs.extend(collection.objects)
-
-            # Recursividad en sub-colecciones
             for sub_col in collection.children:
-                objs.extend(gather_objects_recursive(sub_col))
+                gather_objects_recursive(sub_col, result)
 
-            return objs
+            return result
 
         all_objects = gather_objects_recursive(mapa_collection)
 
@@ -223,25 +215,25 @@ class MAP_OT_ApplyScaleToSelected(bpy.types.Operator):
                         except Exception as e:
                             print(f"[ERROR] No se pudo aplicar {mod.type} en '{obj.name}': {e}")
 
-        total = len(all_objects)
-        sum_x = sum(obj.location.x for obj in all_objects)
-        sum_y = sum(obj.location.y for obj in all_objects)
-
-        center = (sum_x / total, sum_y / total, 0.0)
+        center = (
+            sum(obj.location.x for obj in all_objects) / len(all_objects),
+            sum(obj.location.y for obj in all_objects) / len(all_objects),
+            0.0
+        )
 
         empty = bpy.data.objects.new("MAPA_SCALE", None)
         empty.empty_display_type = 'PLAIN_AXES'
         empty.empty_display_size = 20
         empty.location = center
         mapa_collection.objects.link(empty)
-
         for obj in all_objects:
-            obj.select_set(True)
-        bpy.context.view_layer.objects.active = empty
-        bpy.ops.object.parent_set(type='OBJECT', keep_transform=True)
+            if obj.parent is None:
+                obj.parent = empty
+                obj.matrix_parent_inverse = empty.matrix_world.inverted()
 
         empty.scale = (selected_map.scale,) * 3
         empty.location = (0, 0, 0)
+
         self.report({'INFO'}, f"Escala {selected_map.scale} aplicada a la colección 'MAPA'.")
         return {'FINISHED'}
 

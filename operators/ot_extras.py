@@ -1,7 +1,9 @@
 import bpy
 from ..scene_utils import is_collection_exist
 from bpy.props import FloatVectorProperty
-
+from mathutils import Vector, Euler
+import math
+ 
 class LayoutNotesProperties(bpy.types.PropertyGroup):
     text_color: FloatVectorProperty(
         name="Color",
@@ -219,10 +221,10 @@ class OT_EXTRAS_RenderNoteGP(bpy.types.Operator):
         brush.strength = 1.0
         return {'FINISHED'}
 
-class OT_EXTRAS_HideNotes(bpy.types.Operator):
-    bl_idname = "extra.hide_notes"
+class OT_EXTRAS_SetScaleToZero(bpy.types.Operator):
+    bl_idname = "extra.zero_scale"
     bl_label = ""
-    bl_description = "Oculta la nota seleccionada, escala : (0,0,0)"
+    bl_description = "Oculta el objeto seleccionado a escala : (0,0,0)"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
@@ -234,11 +236,6 @@ class OT_EXTRAS_HideNotes(bpy.types.Operator):
             self.report({'WARNING'}, "No hay objeto activo")
             return {'CANCELLED'}
         
-        in_collection = any(col.name == "NOTAS_LAYOUT" for col in obj.users_collection)
-        if not in_collection:
-            self.report({'WARNING'}, "El objeto no está en la colección 'NOTAS_LAYOUT'")
-            return {'CANCELLED'}
-        
         current_frame = context.scene.frame_current
         
         obj.keyframe_insert(data_path="scale", frame=current_frame - 1)
@@ -247,6 +244,102 @@ class OT_EXTRAS_HideNotes(bpy.types.Operator):
         obj.keyframe_insert(data_path="scale", frame=current_frame)
         
         return {'FINISHED'}
+
+
+class OT_EXTRAS_move_camera_to_cursor(bpy.types.Operator):
+    bl_idname = "extra.move_camera"
+    bl_label = "Move dolly rig to cursor"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    offset_distance: bpy.props.FloatProperty(
+        name="Root distance",
+        default=5.0,
+        description="Distancia detrás del Aim para colocar el Root"
+    )
+    root_zero_height: bpy.props.BoolProperty(
+        name="Keep root in 0 height",
+        default=True,
+        description="Mantiene la altura del root siempre en Z = 0"
+    )
+    centrally_align: bpy.props.BoolProperty(
+        name="Centrally align",
+        default=True,
+        description="Ignora la direccion vertical y alinea la camara al aim"
+    )
+    auto_keying: bpy.props.BoolProperty(
+        name="Auto keying",
+        default=True,
+        description="Ignora la direccion vertical y alinea la camara al aim"
+    )
+
+    def execute(self, context):
+        rig_name = "Dolly_Rig"
+        root_bone_name = "Root"
+        camera_bone_name = "Camera"
+        aim_bone_name = "Aim"
+
+        rig = bpy.data.objects.get(rig_name)
+       
+        if rig is None or rig.type != 'ARMATURE':
+            self.report({'ERROR'}, f"No se encontró el armature '{rig_name}'")
+            return {'CANCELLED'}
+       
+        pb_root = rig.pose.bones.get(root_bone_name)
+        pb_aim = rig.pose.bones.get(aim_bone_name)
+        pb_camera = rig.pose.bones.get(camera_bone_name)
+        
+        if pb_root is None or pb_aim is None or pb_camera is None:
+            raise Exception("No se encontraron los huesos Root, Camera o Aim")
+        
+        area = next((a for a in context.window.screen.areas if a.type == 'VIEW_3D'), None)
+        if not area:
+            return {'CANCELLED'}
+        
+        cursor_loc = context.scene.cursor.location.copy()
+        
+        region_3d = area.spaces.active.region_3d
+        view_dir = quantize_vector_direction(region_3d.view_rotation @ Vector((0.0, 0.0, 1.0)), step_degrees=5)
+        bone_view_pos = cursor_loc - (view_dir * self.offset_distance)
+        if self.root_zero_height: 
+            bone_view_pos.z = 0
+        
+        current_frame = context.scene.frame_current
+        if self.auto_keying:
+            prev_frame = current_frame - 1
+            insert_loc_rot_keys([pb_root, pb_aim, pb_camera], prev_frame)
+
+        pb_root.matrix.translation = bone_view_pos
+        bpy.context.view_layer.update()
+        pb_aim.matrix.translation = cursor_loc
+        
+        if  self.centrally_align:
+            pb_camera.location.z = pb_aim.location.z
+            
+        bpy.context.view_layer.update()
+        
+        if self.auto_keying:
+            insert_loc_rot_keys([pb_root, pb_aim, pb_camera], current_frame)
+            
+        return {'FINISHED'}
+
+def insert_loc_rot_keys(pose_bones, frame):
+    for pb in pose_bones:
+        pb.keyframe_insert(data_path="location", frame=frame)
+        pb.keyframe_insert(data_path="rotation_euler", frame=frame)
+
+
+def quantize_vector_direction(vec, step_degrees=5.0):
+    eul = vec.to_track_quat('Z', 'Y').to_euler()
+
+    step_radians = math.radians(step_degrees)
+
+    eul.x = round(eul.x / step_radians) * step_radians
+    eul.y = round(eul.y / step_radians) * step_radians
+    eul.z = round(eul.z / step_radians) * step_radians
+
+    quat = eul.to_quaternion()
+    quantized_vec = quat @ Vector((0.0, 0.0, -1.0))
+    return quantized_vec.normalized()
 
 def focal_compensation(cam):
     focal_ref = 50.0
@@ -303,7 +396,8 @@ def register_extras():
         OT_EXTRAS_BakeParticles,
         OT_EXTRAS_RenderNote,
         OT_EXTRAS_RenderNoteGP,
-        OT_EXTRAS_HideNotes
+        OT_EXTRAS_SetScaleToZero,
+        OT_EXTRAS_move_camera_to_cursor
     ):
         bpy.utils.register_class(cls)
     
@@ -319,6 +413,7 @@ def unregister_extras():
         OT_EXTRAS_BakeParticles,
         OT_EXTRAS_RenderNote,
         OT_EXTRAS_RenderNoteGP,
-        OT_EXTRAS_HideNotes
+        OT_EXTRAS_SetScaleToZero,
+        OT_EXTRAS_move_camera_to_cursor
     )):
         bpy.utils.unregister_class(cls)

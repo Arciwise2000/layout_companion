@@ -133,14 +133,12 @@ class MESH_OT_AnalyzeMesh(bpy.types.Operator):
             self.clean_mesh_bmesh(obj, remove_doubles=scene.props_advanced_settings.remove_doubles)
             self.tris_to_quads_bmesh(obj)
 
-            # Seleccionar solo el objeto y asegurarse de estar en modo OBJECT
             bpy.ops.object.select_all(action='DESELECT')
             obj.select_set(True)
             bpy.ops.mesh.customdata_custom_splitnormals_clear()
             context.view_layer.objects.active = obj
             bpy.ops.object.mode_set(mode='OBJECT')
 
-            # Aplicar transformaciones antes de ajustar el origen
             bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
             bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='MEDIAN')
        
@@ -176,5 +174,56 @@ class MESH_OT_AnalyzeMesh(bpy.types.Operator):
                 for col in list(obj.users_collection):
                     col.objects.unlink(obj)
                 clean_prop_col.objects.link(obj)
+                
         
+        import mathutils
+
+        if scene.props_advanced_settings.add_final_empty:
+            final_empty_name = parent_empty_name if parent_empty_name else "Cleaned_Prop_Handlerxd"
+            final_empty = bpy.data.objects.new(final_empty_name, None)
+            final_empty.empty_display_type = 'CUBE'
+            context.scene.collection.objects.link(final_empty)
+            
+            if 'clean_prop_col' in locals() and clean_prop_col is not None:
+                clean_prop_col.objects.link(final_empty)
+            else:
+                context.scene.collection.objects.link(final_empty)
+            
+            if final_empty.name in context.scene.collection.objects and (
+                'clean_prop_col' in locals() and clean_prop_col is not None
+            ):
+                context.scene.collection.objects.unlink(final_empty)        
+            
+            
+            all_coords = []
+            for obj in final_objects:
+                for corner in obj.bound_box:
+                    world_corner = obj.matrix_world @ mathutils.Vector(corner)
+                    all_coords.append(world_corner)
+
+            # Calcular los límites mínimos y máximos
+            min_corner = mathutils.Vector((
+                min(v.x for v in all_coords),
+                min(v.y for v in all_coords),
+                min(v.z for v in all_coords)
+            ))
+            max_corner = mathutils.Vector((
+                max(v.x for v in all_coords),
+                max(v.y for v in all_coords),
+                max(v.z for v in all_coords)
+            ))
+            bound_size = max_corner - min_corner
+            
+            avg_bound = (bound_size.x + bound_size.y + bound_size.z) / 3.0
+            final_empty.empty_display_size = avg_bound * 0.5
+            
+            
+            centers = [obj.matrix_world.translation for obj in final_objects]
+            avg_center = sum(centers, mathutils.Vector()) / len(centers)
+            final_empty.location = avg_center
+
+            for obj in final_objects:
+                obj.parent = final_empty
+                obj.location = (0, 0, 0)
+                
         return {'FINISHED'}

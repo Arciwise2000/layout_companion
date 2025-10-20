@@ -93,3 +93,30 @@ def check_emitters_in_collection():
     return False
 
 
+def check_collections_disable(main_coll_name):    
+    main_collection = bpy.data.collections.get(main_coll_name)
+    
+    if is_collection_exist(main_coll_name) is None:
+        return False
+    
+    view_layer = bpy.context.view_layer
+    
+    def get_layer_collection(layer_coll, name):
+        if layer_coll.name == name:
+            return layer_coll
+        for child in layer_coll.children:
+            result = get_layer_collection(child, name)
+            if result:
+                return result
+        return None
+    
+    main_layer_coll = get_layer_collection(view_layer.layer_collection, main_coll_name)
+    
+    if not main_layer_coll:
+        return False
+    
+    for child_layer_coll in main_layer_coll.children:
+        if child_layer_coll.exclude:
+            return False
+
+    return True

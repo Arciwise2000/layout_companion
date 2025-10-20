@@ -253,7 +253,7 @@ class OT_EXTRAS_move_camera_to_cursor(bpy.types.Operator):
 
     offset_distance: bpy.props.FloatProperty(
         name="Root distance",
-        default=5.0,
+        default=1.0,
         description="Distancia detrás del Aim para colocar el Root"
     )
     root_zero_height: bpy.props.BoolProperty(
@@ -283,7 +283,26 @@ class OT_EXTRAS_move_camera_to_cursor(bpy.types.Operator):
         if rig is None or rig.type != 'ARMATURE':
             self.report({'ERROR'}, f"No se encontró el armature '{rig_name}'")
             return {'CANCELLED'}
-       
+        
+        #region look for zero location and rotation
+        if not (
+            math.isclose(rig.location.x, 0.0, abs_tol=1e-4) and
+            math.isclose(rig.location.y, 0.0, abs_tol=1e-4) and
+            math.isclose(rig.location.z, 0.0, abs_tol=1e-4)
+        ):
+            self.report({'ERROR'}, "El rig no está en la ubicación (0, 0, 0) en modo objeto.")
+            return {'CANCELLED'}
+        
+        rot = rig.rotation_euler
+        if not (
+            math.isclose(rot.x, 0.0, abs_tol=1e-4) and
+            math.isclose(rot.y, 0.0, abs_tol=1e-4) and
+            math.isclose(rot.z, 0.0, abs_tol=1e-4)
+        ):
+            self.report({'ERROR'}, "El rig no está rotado en (0°, 0°, 0°) en modo objeto.")
+            return {'CANCELLED'}
+        #endregion
+        
         pb_root = rig.pose.bones.get(root_bone_name)
         pb_aim = rig.pose.bones.get(aim_bone_name)
         pb_camera = rig.pose.bones.get(camera_bone_name)
@@ -306,7 +325,7 @@ class OT_EXTRAS_move_camera_to_cursor(bpy.types.Operator):
         current_frame = context.scene.frame_current
         if self.auto_keying:
             prev_frame = current_frame - 1
-            insert_loc_rot_keys([pb_root, pb_aim, pb_camera], prev_frame)
+            insert_loc_rot_keys(rig, [pb_root, pb_aim, pb_camera], prev_frame)
 
         pb_root.matrix.translation = bone_view_pos
         bpy.context.view_layer.update()
@@ -318,17 +337,34 @@ class OT_EXTRAS_move_camera_to_cursor(bpy.types.Operator):
         bpy.context.view_layer.update()
         
         if self.auto_keying:
-            insert_loc_rot_keys([pb_root, pb_aim, pb_camera], current_frame)
+            insert_loc_rot_keys(rig, [pb_root, pb_aim, pb_camera], current_frame)
             
         return {'FINISHED'}
 
-def insert_loc_rot_keys(pose_bones, frame):
+def insert_loc_rot_keys(rig, pose_bones, frame):
+    """Inserta keyframes de locación y rotación solo si no existen en ese frame."""
     for pb in pose_bones:
-        pb.keyframe_insert(data_path="location", frame=frame)
-        pb.keyframe_insert(data_path="rotation_euler", frame=frame)
+        name = pb.name
+        for path in ["location", "rotation_euler"]:
+            if not has_keyframe(rig, name, path, frame):
+                pb.keyframe_insert(data_path=path, frame=frame)
+
+def has_keyframe(obj, bone_name, data_path, frame):
+    if not obj.animation_data or not obj.animation_data.action:
+        return False
+
+    action = obj.animation_data.action
+    full_path = f'pose.bones["{bone_name}"].{data_path}'
+
+    for fc in action.fcurves:
+        if fc.data_path == full_path:
+            for key in fc.keyframe_points:
+                if abs(key.co.x - frame) < 0.001:
+                    return True
+    return False
 
 
-def quantize_vector_direction(vec, step_degrees=5.0):
+def quantize_vector_direction(vec, step_degrees=15.0):
     eul = vec.to_track_quat('Z', 'Y').to_euler()
 
     step_radians = math.radians(step_degrees)

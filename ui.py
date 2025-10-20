@@ -231,7 +231,9 @@ def draw_extras_content(layout, context,icons):
      ln_settings = scene.layout_notes_settings
         
      box = layout.box()
-     box.label(text="Layout notes", icon='FILE_TEXT')
+     rowtitle = box.row()
+     rowtitle.label(text="Layout notes", icon='FILE_TEXT')
+     draw_youtube_info(rowtitle,icons["youtube"].icon_id,"https://youtu.be/Z0F3jU5Mz1g")
      row = box.row(align=True)
      row.operator("extra.create_note", text="Create note", icon_value=icons["note"].icon_id)
      row.prop(ln_settings, "text_color", text="")
@@ -243,7 +245,9 @@ def draw_extras_content(layout, context,icons):
      box.operator("extra.zero_scale", text="Set scale to zero", icon="HIDE_ON")
      
      box = layout.box()
-     box.label(text="Camera", icon='CAMERA_DATA')
+     rowtitle = box.row()
+     rowtitle.label(text="Camera", icon='CAMERA_DATA')
+     draw_youtube_info(rowtitle,icons["youtube"].icon_id,"https://youtu.be/Z0F3jU5Mz1g?t=39")
      row = box.row(align=True)
      row.label(text="Safe area")
      row.prop(settings, "enabled", toggle=True, icon="RESTRICT_VIEW_OFF" if settings.enabled else "RESTRICT_VIEW_ON")
@@ -266,12 +270,12 @@ def draw_extras_content(layout, context,icons):
         props = context.window_manager.uc_updated_character
 
         if is_collection_exist("PERSONAJES"):
-            box.prop(props, "collection_enum", text="Old")
+             box.prop(props, "old_collection")
         else:
-            draw_informative_box(box," Personajes deben estar dentro de PERSONAJES \n No deben tener aplicado el scale a deltas!!",True)
-        box.prop(props, "new_collection", text="New")
-        if props.new_collection:
-            box.prop(props, "name_collection", text="Select")
+            draw_informative_box(box,"No existe la collection PERSONAJES, creala! \n No deben tener aplicado el scale a deltas!!",True)
+        box.prop(props, "new_blend_path")
+        if props.new_blend_path:
+            box.prop(props, "new_collection")
         box.operator("mesh.append_and_replace", icon="FILE_REFRESH")
 
 #endregion

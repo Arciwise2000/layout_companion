@@ -19,7 +19,7 @@ class MESH_OT_AnalyzeMesh(bpy.types.Operator):
     def get_all_meshes(self, context):
         selected_obj = context.active_object
         scene = context.scene
-
+    
         def collect_meshes_from_empty(obj):
             meshes = []
             def collect(obj):

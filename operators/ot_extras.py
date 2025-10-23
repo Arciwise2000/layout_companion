@@ -3,7 +3,8 @@ from ..scene_utils import is_collection_exist
 from bpy.props import FloatVectorProperty
 from mathutils import Vector, Euler
 import math
- 
+
+
 class LayoutNotesProperties(bpy.types.PropertyGroup):
     text_color: FloatVectorProperty(
         name="Color",
@@ -20,11 +21,9 @@ class LayoutNotesProperties(bpy.types.PropertyGroup):
         size=4,
         min=0.0,
         max=1.0,
-        default=(1, 0, 0,1),
+        default=(1, 0, 0, 1),
         description="Color del Grease Pencil"
     )
-
-
 
 
 def get_all_objects_recursive(collection):
@@ -60,7 +59,8 @@ class OT_EXTRAS_BakeParticles(bpy.types.Operator):
 
         total = len(particle_mods)
         if total == 0:
-            self.report({'WARNING'}, "No se encontraron sistemas de partículas.")
+            self.report(
+                {'WARNING'}, "No se encontraron sistemas de partículas.")
             return {'CANCELLED'}
 
         wm = context.window_manager
@@ -93,7 +93,7 @@ class OT_EXTRAS_BakeParticles(bpy.types.Operator):
         self.report({'INFO'}, f"Se bakearon {total} sistemas de partículas.")
         return {'FINISHED'}
 
-    
+
 class OT_EXTRAS_RenderNote(bpy.types.Operator):
     bl_idname = "extra.create_note"
     bl_label = ""
@@ -121,20 +121,19 @@ class OT_EXTRAS_RenderNote(bpy.types.Operator):
         obj = context.active_object
         obj.data.body = self.text
         obj.scale = (0.04, 0.04, 0.04)
-        
+
         color = context.scene.layout_notes_settings.text_color
         rgb_color = list(color) + [1.0]
-        
+
         base_name = "Emission_Note"
         unique_name = get_unique_material_name(base_name)
         mat = create_material(unique_name, rgb_color)
-        
+
         if obj.data.materials:
             obj.data.materials[0] = mat
         else:
             obj.data.materials.append(mat)
 
-        
         for c in obj.users_collection:
             c.objects.unlink(obj)
         coll.objects.link(obj)
@@ -146,16 +145,16 @@ class OT_EXTRAS_RenderNote(bpy.types.Operator):
             self.report({'ERROR'}, "No hay cámara en la escena.")
             bpy.data.objects.remove(obj)
             return {'CANCELLED'}
-        
+
         obj.parent = cam
 
         obj.location = (-0.32, -0.17, focal_compensation(cam))
 
         obj.rotation_euler = (0, 0, 0)
-        
+
         current_frame = context.scene.frame_current
         obj.keyframe_insert(data_path="scale", frame=current_frame)
-        
+
         obj.scale = (0.0, 0.0, 0.0)
         obj.keyframe_insert(data_path="scale", frame=current_frame - 1)
 
@@ -164,8 +163,8 @@ class OT_EXTRAS_RenderNote(bpy.types.Operator):
                 for keyframe in fcurve.keyframe_points:
                     keyframe.interpolation = 'CONSTANT'
 
-
         return {'FINISHED'}
+
 
 class OT_EXTRAS_RenderNoteGP(bpy.types.Operator):
     bl_idname = "extra.create_note_gp"
@@ -176,7 +175,7 @@ class OT_EXTRAS_RenderNoteGP(bpy.types.Operator):
     def execute(self, context):
         if context.mode != 'OBJECT':
             bpy.ops.object.mode_set(mode='OBJECT')
-        
+
         coll_name = "NOTAS_LAYOUT"
         if coll_name in bpy.data.collections:
             coll = bpy.data.collections[coll_name]
@@ -187,26 +186,25 @@ class OT_EXTRAS_RenderNoteGP(bpy.types.Operator):
         bpy.ops.object.grease_pencil_add(location=(0, 0, 0))
         gp_object = context.active_object
         gp_object.name = "GP_Note"
-        
+
         gp_object.hide_render = True
         cam = context.scene.camera
         if not cam:
             self.report({'ERROR'}, "No hay cámara en la escena.")
             bpy.data.objects.remove(gp_object)
             return {'CANCELLED'}
-        
+
         for c in gp_object.users_collection:
             c.objects.unlink(gp_object)
         coll.objects.link(gp_object)
-        
+
         gp_object.parent = cam
 
         gp_object.location = (-0.32, -0.17, focal_compensation(cam))
         gp_object.rotation_euler = (0, 0, 0)
 
-
         gp_data = gp_object.data
-        
+
         color = context.scene.layout_notes_settings.grease_pencil_color
         bpy.ops.material.new()
         bpy.context.object.active_material.grease_pencil.color = color
@@ -215,11 +213,12 @@ class OT_EXTRAS_RenderNoteGP(bpy.types.Operator):
         gp_object.select_set(True)
         context.view_layer.objects.active = gp_object
         bpy.ops.object.mode_set(mode='PAINT_GREASE_PENCIL')
-        
+
         brush = context.tool_settings.gpencil_paint.brush
         brush.size = 2
         brush.strength = 1.0
         return {'FINISHED'}
+
 
 class OT_EXTRAS_SetScaleToZero(bpy.types.Operator):
     bl_idname = "extra.zero_scale"
@@ -230,19 +229,19 @@ class OT_EXTRAS_SetScaleToZero(bpy.types.Operator):
     def execute(self, context):
         if context.mode != 'OBJECT':
             bpy.ops.object.mode_set(mode='OBJECT')
-       
+
         obj = context.active_object
         if not obj:
             self.report({'WARNING'}, "No hay objeto activo")
             return {'CANCELLED'}
-        
+
         current_frame = context.scene.frame_current
-        
+
         obj.keyframe_insert(data_path="scale", frame=current_frame - 1)
-        
+
         obj.scale = (0.0, 0.0, 0.0)
         obj.keyframe_insert(data_path="scale", frame=current_frame)
-        
+
         return {'FINISHED'}
 
 
@@ -279,49 +278,53 @@ class OT_EXTRAS_move_camera_to_cursor(bpy.types.Operator):
         aim_bone_name = "Aim"
 
         rig = bpy.data.objects.get(rig_name)
-       
+
         if rig is None or rig.type != 'ARMATURE':
             self.report({'ERROR'}, f"No se encontró el armature '{rig_name}'")
             return {'CANCELLED'}
-        
-        #region look for zero location and rotation
+
+        # region look for zero location and rotation
         if not (
             math.isclose(rig.location.x, 0.0, abs_tol=1e-4) and
             math.isclose(rig.location.y, 0.0, abs_tol=1e-4) and
             math.isclose(rig.location.z, 0.0, abs_tol=1e-4)
         ):
-            self.report({'ERROR'}, "El rig no está en la ubicación (0, 0, 0) en modo objeto.")
+            self.report(
+                {'ERROR'}, "El rig no está en la ubicación (0, 0, 0) en modo objeto.")
             return {'CANCELLED'}
-        
+
         rot = rig.rotation_euler
         if not (
             math.isclose(rot.x, 0.0, abs_tol=1e-4) and
             math.isclose(rot.y, 0.0, abs_tol=1e-4) and
             math.isclose(rot.z, 0.0, abs_tol=1e-4)
         ):
-            self.report({'ERROR'}, "El rig no está rotado en (0°, 0°, 0°) en modo objeto.")
+            self.report(
+                {'ERROR'}, "El rig no está rotado en (0°, 0°, 0°) en modo objeto.")
             return {'CANCELLED'}
-        #endregion
-        
+        # endregion
+
         pb_root = rig.pose.bones.get(root_bone_name)
         pb_aim = rig.pose.bones.get(aim_bone_name)
         pb_camera = rig.pose.bones.get(camera_bone_name)
-        
+
         if pb_root is None or pb_aim is None or pb_camera is None:
             raise Exception("No se encontraron los huesos Root, Camera o Aim")
-        
-        area = next((a for a in context.window.screen.areas if a.type == 'VIEW_3D'), None)
+
+        area = next(
+            (a for a in context.window.screen.areas if a.type == 'VIEW_3D'), None)
         if not area:
             return {'CANCELLED'}
-        
+
         cursor_loc = context.scene.cursor.location.copy()
-        
-        region_3d = area.spaces.active.region_3d
-        view_dir = quantize_vector_direction(region_3d.view_rotation @ Vector((0.0, 0.0, 1.0)), step_degrees=5)
+
+        region_3d = context.area.spaces.active.region_3d
+        view_dir = quantize_vector_direction(
+            region_3d.view_rotation @ Vector((0.0, 0.0, 1.0)), step_degrees=5)
         bone_view_pos = cursor_loc - (view_dir * self.offset_distance)
-        if self.root_zero_height: 
+        if self.root_zero_height:
             bone_view_pos.z = 0
-        
+
         current_frame = context.scene.frame_current
         if self.auto_keying:
             prev_frame = current_frame - 1
@@ -330,24 +333,34 @@ class OT_EXTRAS_move_camera_to_cursor(bpy.types.Operator):
         pb_root.matrix.translation = bone_view_pos
         bpy.context.view_layer.update()
         pb_aim.matrix.translation = cursor_loc
-        
-        if  self.centrally_align:
+
+        if self.centrally_align:
             pb_camera.location.z = pb_aim.location.z
+            pb_camera.location.x = 0.0
+            pb_camera.location.y = 0.0
             
         bpy.context.view_layer.update()
-        
+
         if self.auto_keying:
-            insert_loc_rot_keys(rig, [pb_root, pb_aim, pb_camera], current_frame)
-            
+            insert_loc_rot_keys(
+                rig, [pb_root, pb_aim, pb_camera], current_frame,True)
+
         return {'FINISHED'}
 
-def insert_loc_rot_keys(rig, pose_bones, frame):
+
+def insert_loc_rot_keys(rig, pose_bones, frame, force_insert=False):
     """Inserta keyframes de locación y rotación solo si no existen en ese frame."""
     for pb in pose_bones:
         name = pb.name
-        for path in ["location", "rotation_euler"]:
-            if not has_keyframe(rig, name, path, frame):
+        if not force_insert:
+            for path in ["location", "rotation_euler"]:
+                if not has_keyframe(rig, name, path, frame):
+                    pb.keyframe_insert(data_path=path, frame=frame)
+                    print("xd")
+        else:
+            for path in ["location", "rotation_euler"]:
                 pb.keyframe_insert(data_path=path, frame=frame)
+
 
 def has_keyframe(obj, bone_name, data_path, frame):
     if not obj.animation_data or not obj.animation_data.action:
@@ -377,12 +390,14 @@ def quantize_vector_direction(vec, step_degrees=15.0):
     quantized_vec = quat @ Vector((0.0, 0.0, -1.0))
     return quantized_vec.normalized()
 
+
 def focal_compensation(cam):
     focal_ref = 50.0
     depth_ref = -1.0
     focal_actual = cam.data.lens if cam and cam.type == 'CAMERA' else focal_ref
     depth_scaled = depth_ref * (focal_actual / focal_ref)
     return depth_scaled
+
 
 def create_material(name, color_rgba):
     mat = bpy.data.materials.get(name)
@@ -423,9 +438,6 @@ def get_unique_material_name(base_name):
         index += 1
 
 
-
-
-    
 def register_extras():
     for cls in (
         LayoutNotesProperties,
@@ -436,14 +448,16 @@ def register_extras():
         OT_EXTRAS_move_camera_to_cursor
     ):
         bpy.utils.register_class(cls)
-    
-    bpy.types.Scene.layout_notes_settings = bpy.props.PointerProperty(type=LayoutNotesProperties)
+
+    bpy.types.Scene.layout_notes_settings = bpy.props.PointerProperty(
+        type=LayoutNotesProperties)
+
 
 def unregister_extras():
-    
+
     if hasattr(bpy.types.Scene, "layout_notes_settings"):
         del bpy.types.Scene.layout_notes_settings
-    
+
     for cls in reversed((
         LayoutNotesProperties,
         OT_EXTRAS_BakeParticles,

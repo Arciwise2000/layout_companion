@@ -91,9 +91,10 @@ def import_selected_collection(selected_name, category):
         if coll and coll.name == collection_name:
             new_name = get_next_available_name(collection_name)
             coll.name = new_name
-
-            for obj in [o for o in coll.objects if o.parent is None]:
-                obj.location = scene.cursor.location
+            
+            if not scene.resource_import_origin_none:
+                for obj in [o for o in coll.objects if o.parent is None]:
+                    obj.location = scene.cursor.location
 
             if parent_collection:
                 parent_collection.children.link(coll)
@@ -162,7 +163,7 @@ class RESOURCE_OT_ImportSelected(Operator):
 class RESOURCE_OT_place_origin(Operator):
     bl_idname = "resource.place_origin"
     bl_label = "Place Origin"
-    bl_description = "Selecciona dónde colocar el recurso (Camera o Cursor)."
+    bl_description = "Selecciona dónde colocar el recurso (Camera, cursor o dejar la posicion original)."
 
     origin_type: StringProperty()
 
@@ -180,10 +181,17 @@ class RESOURCE_OT_place_origin(Operator):
 
             scene.resource_import_origin_cursor = False
             scene.resource_import_origin_camera = True
-        else:
+            scene.resource_import_origin_none = False
+        elif self.origin_type == "cursor":
             target_location = scene.cursor.location.copy()
             scene.resource_import_origin_cursor = True
             scene.resource_import_origin_camera = False
+            scene.resource_import_origin_none = False
+        else:
+            scene.resource_import_origin_camera = False
+            scene.resource_import_origin_cursor = False
+            scene.resource_import_origin_none = True
+            return {'FINISHED'}
 
         scene.cursor.location = target_location
         return {'FINISHED'}

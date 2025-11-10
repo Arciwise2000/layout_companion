@@ -28,95 +28,109 @@ class FilesListItem(bpy.types.PropertyGroup):
     thumb_icon: StringProperty(name="Thumbnail Icon", default="")
     visible: BoolProperty(name="visible", default=True)
 
+import bpy
+from pathlib import Path
+
+
 class FILES_UL_List(bpy.types.UIList):
+
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname):
-        
-        item_name = Path(item.name).stem
+        item_name = item.name
+
         if item_name.lower().endswith(".blend"):
             icon_name = 'BLENDER'
-        elif item_name.lower().endswith(".rar") or item_name.lower().endswith(".zip"): 
+        elif item_name.lower().endswith((".rar", ".zip")):
             icon_name = 'COMPRESSED'
-        elif "." not in item.name:
+        elif "." not in item_name:
             icon_name = 'FILE_FOLDER'
         else:
             icon_name = 'FILE'
 
+        def clean_extension(name):
+            for ext in (".json", ".blend"):
+                if name.lower().endswith(ext):
+                    return name[:-len(ext)]
+            return name
+
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             display_name = Path(item.name).stem
-            finalname = display_name
-            if finalname.lower().endswith(".json"):
-                finalname = finalname[:-5] # Remove the 5 characters: ".json"
-        
-            if finalname.lower().endswith(".blend"):
-                finalname = finalname[:-6] # Remove the 6 characters: ".blend"
-                
+            finalname = clean_extension(display_name)
+
             row = layout.row(align=True)
-            if icon_name != "COMPRESSED":
-                row.label(text=finalname, icon=icon_name)
-            else:
-                custom_icons = getattr(context.window_manager, "custom_icons", None)
+
+            custom_icons = getattr(context.window_manager, "custom_icons", None)
+            if icon_name == "COMPRESSED" and custom_icons and "compressed" in custom_icons:
                 row.label(text=finalname, icon_value=custom_icons["compressed"].icon_id)
-            if item.version:
+            else:
+                row.label(text=finalname, icon=icon_name)
+
+            if hasattr(item, "version") and item.version:
                 row.label(text=f"v{item.version}", icon='INFO')
-                
+
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
             layout.label(text="", icon_value=icon)
-    
+
+    # ----------------------------
+    # FILTRADO Y ORDENAMIENTO
+    # ----------------------------
     def filter_items(self, context, data, propname):
-        """Filtrado con scoring de similitud - máximo 5 resultados"""
+        """Filtrado con scoring de similitud - máximo 20 resultados + orden alfabético opcional"""
         scene = context.scene
         items = getattr(data, propname)
-        
+
         flt_flags = [0] * len(items)
         flt_neworder = []
-        
+
         search_term = scene.files_list_filter.strip()
-        
+        sort_alpha = scene.files_list_sort_alpha
+
+        # Si no hay término de búsqueda
         if not search_term:
             flt_flags = [self.bitflag_filter_item] * len(items)
+            flt_neworder = (
+                sorted(range(len(items)), key=lambda i: items[i].name.lower())
+                if sort_alpha
+                else list(range(len(items)))
+            )
             return flt_flags, flt_neworder
-        
-        all_items = list(items)
-        
+
+        # Definir funciones auxiliares
         def get_name(item):
             return item.name
-        
+
         def get_tags(item):
-            name_parts = Path(item.name).stem.lower().split('_')
-            return name_parts
-        
+            return Path(item.name).stem.lower().split('_')
+
+        # compute_filtered_items_generic() debe retornar lista de ítems filtrados
         filtered_items = compute_filtered_items_generic(
-            all_items,
+            items,
             search_term,
             get_name_func=get_name,
             get_tags_func=get_tags
-        )
-        
-        filtered_items = filtered_items[:10]
-        
+        )[:20]
+
+        if sort_alpha:
+            filtered_items.sort(key=lambda i: i.name.lower())
+
         filtered_set = set(filtered_items)
-        
         for i, item in enumerate(items):
             if item in filtered_set:
                 flt_flags[i] = self.bitflag_filter_item
+
+        item_to_index = {id(item): i for i, item in enumerate(items)}
+        flt_neworder = [item_to_index[id(fi)] for fi in filtered_items if id(fi) in item_to_index]
+        flt_neworder += [i for i in range(len(items)) if i not in flt_neworder]
         
-        if filtered_items:
-            item_to_index = {id(item): i for i, item in enumerate(items)}
-            
-            new_order = []
-            for filtered_item in filtered_items:
-                original_index = item_to_index.get(id(filtered_item))
-                if original_index is not None:
-                    new_order.append(original_index)
-            
-            for i in range(len(items)):
-                if i not in new_order:
-                    new_order.append(i)
-            
-            flt_neworder = new_order
+        flt_neworder = (
+        sorted(range(len(items)), key=lambda i: items[i].name.lower())
+        if sort_alpha
+        else list(range(len(items)))
+    )
+        flt_neworder = flt_neworder.copy()
         
         return flt_flags, flt_neworder
+
 
 #endregion
 
@@ -241,8 +255,18 @@ def update_item_with_json(item, json_data):
         item.thumb_id = extract_drive_id_from_link(thumb_link)
     
     rigger_data = json_data.get("modelador", {})
+
     if isinstance(rigger_data, dict):
-        rigger_values = [str(v) for v in rigger_data.values() if v and str(v).lower() != "none"]
+        nombre = rigger_data.get("nombre")
+        apellido = rigger_data.get("apellido")
+        rigger_values = []
+        
+        if nombre and str(nombre).lower() != "none":
+            rigger_values.append(str(nombre))
+            
+        if apellido and str(apellido).lower() != "none":
+            rigger_values.append(str(apellido))
+        
         item.rigger = " ".join(rigger_values) if rigger_values else "Unknown"
     else:
         item.rigger = str(rigger_data) if rigger_data else "Unknown"
@@ -388,33 +412,32 @@ class DRIVE_OT_EnterToFolder(bpy.types.Operator):
     bl_idname = "drive.open_folder"
     bl_label = "Open Folder"
     bl_description = "Abre la carpeta seleccionada y muestra sus archivos JSON"
-
-    @classmethod
-    def poll(cls, context):
-        return (len(context.scene.files_list_items) > 0 and 
-                context.scene.drive_main_page)
-
+    
+    folder_id: bpy.props.StringProperty(default="")
+    
     def execute(self, context):
         scene = context.scene
-
-        if len(scene.files_list_items) == 0:
-            self.report({'WARNING'}, "No hay carpetas para abrir")
-            return {'CANCELLED'}
-
-        idx = scene.files_list_index
-        if idx < 0 or idx >= len(scene.files_list_items):
-            self.report({'WARNING'}, "Selecciona una carpeta primero")
-            return {'CANCELLED'}
-
-        selected_folder = scene.files_list_items[idx]
-
-        try:
-            folder_id = selected_folder.file_id
-            
-            if not folder_id:
-                self.report({'ERROR'}, "ID de carpeta inválido")
+        
+        folder_id = self.folder_id or ""
+        
+        if not folder_id:
+            if len(scene.files_list_items) == 0:
+                self.report({'WARNING'}, "No hay carpetas para abrir")
                 return {'CANCELLED'}
 
+            idx = scene.files_list_index
+            if idx < 0 or idx >= len(scene.files_list_items):
+                self.report({'WARNING'}, "Selecciona una carpeta primero")
+                return {'CANCELLED'}
+
+            selected_folder = scene.files_list_items[idx]
+            folder_id = selected_folder.file_id
+        
+        if not folder_id:
+            self.report({'ERROR'}, "ID de carpeta inválido")
+            return {'CANCELLED'}
+        
+        try:
             service = get_drive_service()
             clean_folders(context)
             
@@ -519,7 +542,7 @@ class DRIVE_OT_ImportFile(bpy.types.Operator):
             return {'CANCELLED'}
         
         item_name = Path(selected_item.name).stem
-        if item_name.lower().endswith(".rar") or item_name.lower().endswith(".zip"):
+        if item_name.lower().endswith(".rar") or item_name.lower().endswith(".zip") or item_name.lower().endswith(".mp4"):
             url = f"https://drive.google.com/file/d/{selected_item.file_id}/view?usp=drivesdk"
             bpy.ops.wm.url_open(url=url)
             return {'FINISHED'}
@@ -538,8 +561,8 @@ class DRIVE_OT_ImportFile(bpy.types.Operator):
             return {'CANCELLED'}
 
 
-class DRIVE_OT_RefreshFolders(bpy.types.Operator):
-    bl_idname = "drive.refresh_folders"
+class DRIVE_OT_RefreshMain(bpy.types.Operator):
+    bl_idname = "drive.refresh_main"
     bl_label = "Refresh"
     bl_description = "Vuelve al inicio y recarga las carpetas"
 
@@ -555,6 +578,35 @@ class DRIVE_OT_RefreshFolders(bpy.types.Operator):
             
         except Exception as e:
             self.report({'ERROR'}, f"Error: {e}")
+            return {'CANCELLED'}
+        
+        
+class DRIVE_OT_RefreshFolder(bpy.types.Operator):
+    bl_idname = "drive.refresh_folder"
+    bl_label = "Refresh"
+    bl_description = "Recarga la carpeta actual"
+
+    def execute(self, context):
+        scene = context.scene
+
+        try:
+            folder_id = scene.active_drive_folder_id
+            if not folder_id:
+                self.report({'WARNING'}, "No hay carpeta activa para recargar")
+                return {'CANCELLED'}
+
+            clean_folders(context)
+
+            scene.drive_main_page = False
+
+            bpy.ops.drive.open_folder(folder_id=folder_id)
+
+            self.report({'INFO'}, "Carpeta recargada correctamente")
+            return {'FINISHED'}
+
+        except Exception as e:
+            self.report({'ERROR'}, f"Error al recargar carpeta: {e}")
+            scene.drive_main_page = True
             return {'CANCELLED'}
 
 
@@ -584,12 +636,16 @@ classes = (
     FilesListItem,
     FILES_UL_List,
     DRIVE_OT_ListMainFolders,
-    DRIVE_OT_RefreshFolders,
+    DRIVE_OT_RefreshMain,
+    DRIVE_OT_RefreshFolder,
     DRIVE_OT_EnterToFolder,
     DRIVE_OT_ImportFile,
     DRIVE_OT_ClearFilter
 )
 
+def update_sort_alpha(self, context):
+    context.area.tag_redraw()
+    
 
 def register_horns_resources():
     for cls in classes:
@@ -600,6 +656,12 @@ def register_horns_resources():
         description="Mostrar opciones avanzadas",
         default=False,
         options={'SKIP_SAVE'}
+    )
+    bpy.types.Scene.files_list_sort_alpha = BoolProperty(
+        name="",
+        description="Ordenar la lista de archivos alfabéticamente",
+        default=True,
+        update=update_sort_alpha
     )
     bpy.types.Scene.drive_main_page = BoolProperty(
     name="",
@@ -648,6 +710,7 @@ def unregister_horns_resources():
     del bpy.types.Scene.active_drive_folder_id
     del bpy.types.Scene.get_json_automatically
     del bpy.types.Scene.horns_advance_settings
+    del bpy.types.Scene.files_list_sort_alpha
     del bpy.types.Scene.show_horns_thumbnail
     del bpy.types.Scene.files_list_items
     del bpy.types.Scene.files_list_index

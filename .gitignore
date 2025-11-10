@@ -3,3 +3,6 @@ __pycache__/
 token.json
 layout_companion-main_updater/
 README.md
+.vscode/
+.DS_Store
+.git

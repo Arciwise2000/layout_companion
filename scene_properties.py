@@ -112,6 +112,11 @@ bpy.types.Scene.resource_import_origin_camera = BoolProperty(
     description="Importa el recurso adelante de la camara",
     default=False
 )
+bpy.types.Scene.resource_import_origin_none = BoolProperty(
+    name="",
+    description="Importa el recurso en el origen original",
+    default=False
+)
 
 #NO PERDURABLE PROPERTIES
 def register_props():

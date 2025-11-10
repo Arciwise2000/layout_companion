@@ -58,7 +58,7 @@ def draw_layout_status_content(layout, context,icons):
     ##recuerdo  COLOR_01 ES ROJO 
     if scene.show_settings.render_status:
         
-        icon_bd_version = 'STRIP_COLOR_01' if not bpy.app.version == (4, 5, 3) else 'STRIP_COLOR_04'
+        icon_bd_version = 'STRIP_COLOR_01' if not bpy.app.version == (4, 5, 4) else 'STRIP_COLOR_04'
         row = col.row()
         row.label(text="Blender version", icon=icon_bd_version)
         draw_youtube_info(row,icons["youtube"].icon_id,"https://youtu.be/JiDDLQkjKvU?list=PLJnbM9GLGL-p0A9zpAo08OjqCHfNlJ0Ef")
@@ -304,14 +304,26 @@ class RENDER_PT_QuickSetupPanel(bpy.types.Panel):
 
 #region RESOURCES
 
-def origin_import_type(scene, row):
+def origin_import_type(row, context):
+    
+    icons = getattr(context.window_manager, "custom_icons", None)
+    scene = context.scene
+    
     if scene.resource_import_origin_camera:
         row.operator("resource.place_origin", text="", icon="CURSOR").origin_type = "cursor"
         row.label(text="", icon="OUTLINER_OB_CAMERA")
+        row.operator("resource.place_origin", text="", icon_value=icons["no_cursor"].icon_id).origin_type = "original"
+    
     if scene.resource_import_origin_cursor:
         row.label(text="", icon="PIVOT_CURSOR")
         row.operator("resource.place_origin", text="", icon="CAMERA_DATA").origin_type = "camera"
-
+        row.operator("resource.place_origin", text="", icon_value=icons["no_cursor"].icon_id).origin_type = "original"
+        
+    if scene.resource_import_origin_none:
+        row.operator("resource.place_origin", text="", icon="CURSOR").origin_type = "cursor"
+        row.operator("resource.place_origin", text="", icon="CAMERA_DATA").origin_type = "camera"
+        row.label(text="", icon_value=icons["no_cursor"].icon_id)
+        
 class RENDER_PT_Resources(bpy.types.Panel):
     bl_label = "Resources"
     bl_idname = "RENDER_PT_Resources"
@@ -341,7 +353,6 @@ class RENDER_PT_Resources(bpy.types.Panel):
             draw_horns_resources(layout, context,icons)
 
 def draw_local_resources(layout, context,icons):
-    scene = context.scene
     wm = context.window_manager
 
     resourceBox = layout.box()
@@ -352,13 +363,12 @@ def draw_local_resources(layout, context,icons):
         row = box.row(align=True)
         row.scale_y = 1.3
         row.operator("resource.import_selected", icon="IMPORT")
-        origin_import_type(scene, row)
+        origin_import_type(row,context)
     else:
         resourceBox.label(text="No hay previews disponibles")
         
         
 def draw_local_maniquies(layout, context,icons):
-    scene = context.scene
     wm = context.window_manager
 
     resourceBox = layout.box()
@@ -369,7 +379,7 @@ def draw_local_maniquies(layout, context,icons):
         row = box.row(align=True)
         row.scale_y = 1.3
         row.operator("resource.import_selected", icon="IMPORT")
-        origin_import_type(scene, row)
+        origin_import_type(row,context)
     else:
         resourceBox.label(text="No hay previews disponibles")
         
@@ -386,6 +396,7 @@ def draw_drive_resources(layout, context,icons):
     searchrow.operator("prop.drive_refresh_previews", icon='FILE_REFRESH')
     searchrow.prop(wm, "drive_search", text="", icon_value=icons["search"].icon_id)
     searchrow.prop(scene, "drive_advance_settings", text="",icon="TOOL_SETTINGS")
+    
     if scene.drive_advance_settings:
         deleterow = propBox.row()
         deleterow.label(text="Eliminar el prop seleccionado del drive")
@@ -394,9 +405,13 @@ def draw_drive_resources(layout, context,icons):
         cache_size_mb = get_cache_size_mb()
         propBox.operator("props.cleanup_cache", text=f"Limpiar caché {cache_size_mb:.2f} MB", icon='TRASH')
     
-    propBox.template_icon_view(wm, "drive_preview_enum")
-
     if hasattr(wm, "drive_preview_enum") and wm.drive_preview_enum:
+        paginationrow = propBox.row(align=True)
+        paginationrow.operator("prop.drive_prev_page", icon='FRAME_PREV')
+        paginationrow.operator("prop.drive_next_page", icon='FRAME_NEXT')
+
+        propBox.template_icon_view(wm, "drive_preview_enum")
+    
         preview = get_active_drive_preview(context)
         col = propBox.column(align=True)
         if preview:
@@ -416,7 +431,7 @@ def draw_drive_resources(layout, context,icons):
             row = box.row(align=True)
             row.scale_y = 1.3
             row.operator("prop.drive_import_blend", icon='IMPORT')
-            origin_import_type(scene, row)
+            origin_import_type(row,context)
         else:
             col.label(text="Preview no encontrado")
     else:
@@ -427,18 +442,16 @@ def draw_horns_resources(layout, context,icons):
     scene = context.scene
     
     box = layout.box()
-    devbox = box.box()
-    devbox.label(text="Actualmente en desarrollo (Se puede usar)", icon_value=icons["alert"].icon_id)
     if hasattr(scene, "files_list_items"):
         if len(scene.files_list_items) > 0:
             row = box.row(align=True)
             
             if scene.drive_main_page:
-                row.operator("drive.refresh_folders",text="Reload", icon='FILE_REFRESH')
+                row.operator("drive.refresh_main",text="Reload", icon='FILE_REFRESH')
+                row.operator("drive.open_folder",text="Open trend",icon='FRAME_NEXT')
             else:
-                row.operator("drive.refresh_folders",text="Home", icon='HOME')
-                  
-            row.operator("drive.open_folder",text="Open trend",icon='FRAME_NEXT')
+                row.operator("drive.refresh_main",text="Home", icon='HOME')
+                row.operator("drive.refresh_folder",text="Reload", icon='FILE_REFRESH')
            
             row = box.row(align=True)
             row.prop(scene, "files_list_filter", text="", icon_value=icons["search"].icon_id)
@@ -449,7 +462,7 @@ def draw_horns_resources(layout, context,icons):
                 settingsbox = box.row(align=True)
                 settingsbox.prop(scene, "get_json_automatically", text="Get info automatically",icon="TRIA_DOWN_BAR")
                 settingsbox.prop(scene, "show_horns_thumbnail", text="Show preview",icon="OUTLINER_OB_IMAGE")
-                
+                settingsbox.prop(scene, "files_list_sort_alpha",icon="SORTALPHA")
             box.template_list("FILES_UL_List", "", scene, "files_list_items", scene, "files_list_index", rows=5)
            
             if not scene.drive_main_page:
@@ -458,9 +471,9 @@ def draw_horns_resources(layout, context,icons):
 
                 if 0 <= idx < len(scene.files_list_items):
                     item = scene.files_list_items[idx]
-                    row_info = infobox.row(align=True)  # fila horizontal
+                    row_info = infobox.row(align=True)
                     row_info.scale_y = 1.2
-                    if item.json_loaded:
+                    if item.json_loaded: 
                         col_info = row_info.column(align=True)
                         col_info.label(text=f"Type: {item.type}", icon='FILE_FOLDER')
                         col_info.label(text=f"Rigger: {item.rigger}", icon='USER')
@@ -489,11 +502,11 @@ def draw_horns_resources(layout, context,icons):
                     row = box.row()
                     row.scale_y = 1.3
                     item_name = Path(item.name).stem
-                    if item_name.lower().endswith(".rar") or item_name.lower().endswith(".zip"):
+                    if item_name.lower().endswith(".rar") or item_name.lower().endswith(".zip") or item_name.lower().endswith(".mp4"):
                         row.operator("drive.import_file",text="Go to drive", icon='INTERNET')
                     else: 
                         row.operator("drive.import_file",text="Import", icon='IMPORT')
-                        origin_import_type(scene, row)
+                        origin_import_type(row,context)
                 else:
                     infobox.label(text="Seleccione un elemento válido", icon='INFO')
         else:

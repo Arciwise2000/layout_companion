@@ -6,7 +6,6 @@ from pathlib import Path
 import bpy.utils.previews
 from difflib import SequenceMatcher
 import shutil
-import base64
 
 #region VARIABLLES
 
@@ -19,6 +18,7 @@ SESSION_TEMP_DIR = Path(tempfile.gettempdir()) / "blender_drive_session"
 SHARED_FOLDER_ID = None
 
 SCOPES = ["https://www.googleapis.com/auth/drive"]
+ITEMS_PER_PAGE = 24
 
 class PropTag(bpy.types.PropertyGroup):
     name: bpy.props.StringProperty()
@@ -298,7 +298,7 @@ def import_blend_from_drive(context, file_id=None, type="any", file_name=None, p
         wm.progress_update(10)
         
         if file_id:
-            actual_file_id = file_id  # ✅ Usar el ID proporcionado
+            actual_file_id = file_id
             if not file_name:
                 try:
                     file_metadata = service.files().get(
@@ -352,20 +352,21 @@ def import_blend_from_drive(context, file_id=None, type="any", file_name=None, p
         
         imported_collections = {col.name: col for col in data_to.collections if col}
         root_collections = []
-
+        
         if getattr(scene, "resource_import_origin_camera", False):
             try:
                 bpy.ops.resource.place_origin(origin_type="camera")
             except Exception as e:
                 print(f"[Drive] No se pudo aplicar origen de cámara: {e}")
+        
 
         for col in imported_collections.values():
-            if type != "mapa":
+            if type != "mapa" and not scene.resource_import_origin_none:
                 for obj in [o for o in col.objects if o.parent is None]:
                     obj.location = scene.cursor.location
-
+                    
             is_child = any(col.name in [child.name for child in p.children]
-                           for p in imported_collections.values())
+                            for p in imported_collections.values())
             if not is_child:
                 root_collections.append(col)
 
@@ -603,91 +604,112 @@ def get_active_drive_preview(context):
 
 #region PAGINACION Y BUSQUEDA
 
+
+#region PAGINACION
+
+class DRIVE_OT_NextPage(bpy.types.Operator):
+    bl_idname = "prop.drive_next_page"
+    bl_label = "Next Page"
+    bl_description = "Ir a la siguiente página"
+    
+    def execute(self, context):
+        wm = context.window_manager
+        if wm.drive_current_page < wm.drive_total_pages:
+            wm.drive_current_page += 1
+        return {'FINISHED'}
+
+
+class DRIVE_OT_PrevPage(bpy.types.Operator):
+    bl_idname = "prop.drive_prev_page"
+    bl_label = "Previous Page"
+    bl_description = "Ir a la página anterior"
+    
+    def execute(self, context):
+        wm = context.window_manager
+        if wm.drive_current_page > 1:
+            wm.drive_current_page -= 1
+        return {'FINISHED'}
+
+#endregion
+
+#region BUSQUEDA
 def compute_filtered_items_generic(all_items, search_term, get_name_func=None, get_tags_func=None, get_desc_func=None):
     """
-    Función genérica de filtrado con scoring mejorado
-    Prioriza coincidencias exactas de palabras
+    Función genérica de filtrado con scoring mejorado.
+    Prioriza coincidencias exactas, coincidencias parciales, similitud y prefijos.
     """
     from difflib import SequenceMatcher
     
     search = (search_term or "").strip().lower()
     if not search:
         return all_items
-    
+
     search_words = search.replace('_', ' ').replace('-', ' ').split()
-    
     scored = []
+
     for item in all_items:
-        name = get_name_func(item) if get_name_func else str(item)
-        name_l = name.lower()
-        
-        tags = []
-        if get_tags_func:
-            tags = [str(t).lower() for t in (get_tags_func(item) or [])]
-        
+        name_l = get_name_func(item).lower() if get_name_func else str(item).lower()
+        tags = [str(t).lower() for t in (get_tags_func(item) or [])] if get_tags_func else []
+
         score_exact_words = 0.0
         matched_words = 0
-        
+
         for search_word in search_words:
-            # Buscar coincidencia exacta en tags
             if search_word in tags:
-                score_exact_words += 2.0  # Peso alto para coincidencia exacta
+                score_exact_words += 2.0  # Coincidencia exacta de tag
                 matched_words += 1
-            # Buscar coincidencia parcial en nombre
             elif search_word in name_l:
-                score_exact_words += 1.0
+                score_exact_words += 1.0  # Coincidencia parcial en nombre
                 matched_words += 1
-        
-        # Si no hay palabras coincidentes, score muy bajo
+
+        # Si no hay coincidencias, reducimos el peso pero no lo eliminamos completamente
         if matched_words == 0:
-            score_exact_words = 0.0
-        
-        # === SCORING POR SIMILITUD DE SECUENCIA ===
+            score_exact_words *= 0.3
+
+        # Similitud con el nombre
         score_name = SequenceMatcher(None, search, name_l).ratio() * 0.5
-        
-        # === SCORING POR TAGS (similitud) ===
-        score_tags = 0.0
-        if get_tags_func:
-            for t in tags:
-                s = SequenceMatcher(None, search, t).ratio()
-                score_tags = max(score_tags, s * 0.3)
-        
-        # === SCORING POR DESCRIPCIÓN ===
-        score_desc = 0.0
-        if get_desc_func:
-            desc = get_desc_func(item) or ""
-            desc_l = desc.lower()
-            if desc_l:
-                score_desc = SequenceMatcher(None, search, desc_l).ratio() * 0.3
-        
-        # === BOOST POR POSICIÓN ===
+
+        # # Similitud con tags
+        # # score_tags = 0.0
+        # # if get_tags_func:
+        # #     for t in tags:
+        # #         s = SequenceMatcher(None, search, t).ratio()
+        # #         score_tags = max(score_tags, s * 0.3)
+
+        # # Similitud con descripción
+        # score_desc = 0.0
+        # if get_desc_func:
+        #     desc_l = (get_desc_func(item) or "").lower()
+        #     if desc_l:
+        #         score_desc = SequenceMatcher(None, search, desc_l).ratio() * 0.3
+
+        # Boost por prefijo o coincidencia parcial
         boost = 0.0
         if name_l.startswith(search):
             boost += 1.5
         elif search in name_l:
             boost += 0.5
-        
-        # === BONUS POR PORCENTAJE DE PALABRAS COINCIDENTES ===
+
+        # Boost adicional si todas las palabras del término están presentes
         if search_words:
             match_ratio = matched_words / len(search_words)
             boost += match_ratio * 2.0
-        
-        # SCORE FINAL: Priorizar coincidencias exactas
-        score = score_exact_words + score_name + score_tags + score_desc + boost
-        
-        scored.append((score, item))
-    
+
+        total_score = score_exact_words + score_name + boost
+        scored.append((total_score, item))
+
     # Ordenar por score descendente
     scored.sort(key=lambda x: x[0], reverse=True)
 
-    # Filtrar por umbral mínimo
+    # Normalizar y aplicar threshold relativo
+    max_score = max((s for s, _ in scored), default=1.0)
     threshold = 0.5
-    filtered = [item for score, item in scored if score >= threshold]
-    
-    # Si no hay resultados, devolver top 5
+    filtered = [item for score, item in scored if score / max_score >= threshold]
+
+    # Fallback si no hay resultados
     if not filtered:
-        filtered = [item for score, item in scored[:5]]
-    
+        filtered = [item for _, item in scored[:15]]
+
     return filtered
 
 def compute_filtered_items(context):
@@ -702,7 +724,6 @@ def compute_filtered_items(context):
     if not search:
         return all_items
 
-    # Crear mapping de tags
     tags_map = {}
     for p in wm.layout_companion_previews:
         try:
@@ -712,16 +733,6 @@ def compute_filtered_items(context):
             tags_map[key] = [t.name.lower() for t in p.tags]
         except Exception:
             continue
-    
-    def get_name(item):
-        return item[1]
-    
-    def get_desc(item):
-        return item[2] 
-    
-    def get_tags(item):
-        identifier = item[0]
-        return tags_map.get(identifier, [])
     
     from difflib import SequenceMatcher
     scored = []
@@ -753,7 +764,7 @@ def compute_filtered_items(context):
     threshold = 0.20
     filtered = [itm for score, itm in scored if score >= threshold]
     if not filtered:
-        filtered = [itm for score, itm in scored[:10]]
+        filtered = [itm for score, itm in scored[:20]]
 
     result = []
     for idx, itm in enumerate(filtered):
@@ -762,17 +773,51 @@ def compute_filtered_items(context):
 
     return result
 
+def get_paginated_items(context):
+    wm = context.window_manager
+    all_filtered = compute_filtered_items(context)
+    
+    total_items = len(all_filtered)
+    total_pages = max(1, (total_items + ITEMS_PER_PAGE - 1) // ITEMS_PER_PAGE)
+    
+    try:
+        if wm.drive_total_pages != total_pages:
+            wm["drive_total_pages"] = total_pages
+    except:
+        pass
+    
+    current_page = max(1, min(wm.drive_current_page, total_pages))
+    if current_page != wm.drive_current_page:
+        wm["drive_current_page"] = current_page
+    
+
+    start_idx = (current_page - 1) * ITEMS_PER_PAGE
+    end_idx = start_idx + ITEMS_PER_PAGE
+    
+    page_items = all_filtered[start_idx:end_idx]
+    
+    result = []
+    for idx, item in enumerate(page_items):
+        identifier, name, desc, icon_id, _ = item
+        result.append((identifier, name, desc, icon_id, idx))
+    
+    return result
+
 
 def _get_filtered_enum_items(self, context):
     try:
-        return compute_filtered_items(context)
-    except Exception:
+        return get_paginated_items(context)
+    except Exception as e:
+        print(f"[_get_filtered_enum_items] Error: {e}")
         return []
 
 def drive_search_update(self, context):
+    """Cuando cambia el search, resetear a página 1"""
     try:
         wm = context.window_manager
-        items = compute_filtered_items(context)
+        wm.drive_current_page = 1  # Resetear a primera página
+        
+        items = get_paginated_items(context)
         if items:
             first_id = items[0][0]
             if hasattr(wm, "drive_preview_enum"):
@@ -787,6 +832,27 @@ def drive_search_update(self, context):
     except Exception as e:
         print(f"[drive_search_update] Error: {e}")
 
+def page_update(self, context):
+    """Cuando cambia de página, actualizar preview"""
+    try:
+        items = get_paginated_items(context)
+        if items:
+            wm = context.window_manager
+            first_id = items[0][0]
+            if hasattr(wm, "drive_preview_enum"):
+                try:
+                    wm.drive_preview_enum = first_id
+                except Exception:
+                    pass
+        
+        for window in bpy.context.window_manager.windows:
+            for area in window.screen.areas:
+                area.tag_redraw()
+    except Exception as e:
+        print(f"[page_update] Error: {e}")
+
+#endregion
+
 #endregion
 
 #region REGISTERS
@@ -797,7 +863,9 @@ classes = (
     DRIVE_OT_CleanupCollabCache,
     DRIVE_OT_RefreshPreviews,
     DRIVE_OT_ImportCollabBlend,
-    DRIVE_OT_DeletePermProp
+    DRIVE_OT_DeletePermProp,
+    DRIVE_OT_NextPage,
+    DRIVE_OT_PrevPage
 )
 
 
@@ -813,7 +881,6 @@ def register_drive():
     bpy.types.WindowManager.layout_companion_previews = bpy.props.CollectionProperty(
         type=LayoutCompanionPreview)
 
-    # Propiedad de búsqueda (update dispara la selección automática y repintado)
     if not hasattr(bpy.types.WindowManager, "drive_search"):
         bpy.types.WindowManager.drive_search = bpy.props.StringProperty(
             name="Buscar",
@@ -823,6 +890,31 @@ def register_drive():
         )
 
     # Enum dinámico para previews (items toma la lista filtrada)
+    if not hasattr(bpy.types.WindowManager, "drive_preview_enum"):
+        bpy.types.WindowManager.drive_preview_enum = bpy.props.EnumProperty(
+            name="Drive Previews",
+            items=_get_filtered_enum_items
+        )
+        
+ # NUEVO: Propiedades de paginación
+    if not hasattr(bpy.types.WindowManager, "drive_current_page"):
+        bpy.types.WindowManager.drive_current_page = bpy.props.IntProperty(
+            name="Página Actual",
+            description="Página actual de resultados",
+            default=1,
+            min=1,
+            update=page_update
+        )
+    
+    if not hasattr(bpy.types.WindowManager, "drive_total_pages"):
+        bpy.types.WindowManager.drive_total_pages = bpy.props.IntProperty(
+            name="Total de Páginas",
+            description="Número total de páginas",
+            default=1,
+            min=1
+        )
+
+    # Enum dinámico para previews (items toma la lista filtrada y paginada)
     if not hasattr(bpy.types.WindowManager, "drive_preview_enum"):
         bpy.types.WindowManager.drive_preview_enum = bpy.props.EnumProperty(
             name="Drive Previews",
@@ -840,7 +932,13 @@ def unregister_drive():
     if "drive" in preview_collections:
         bpy.utils.previews.remove(preview_collections["drive"])
         del preview_collections["drive"]
-
+        
+    if hasattr(bpy.types.WindowManager, "drive_current_page"):
+        del bpy.types.WindowManager.drive_current_page
+    
+    if hasattr(bpy.types.WindowManager, "drive_total_pages"):
+        del bpy.types.WindowManager.drive_total_pages
+        
     if hasattr(bpy.types.WindowManager, "drive_preview_enum"):
         del bpy.types.WindowManager.drive_preview_enum
     del bpy.types.WindowManager.layout_companion_previews

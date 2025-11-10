@@ -223,7 +223,9 @@ class MESH_OT_AnalyzeMesh(bpy.types.Operator):
             final_empty.location = avg_center
 
             for obj in final_objects:
+                old_matrix = obj.matrix_world.copy()
                 obj.parent = final_empty
-                obj.location = (0, 0, 0)
+                bpy.context.view_layer.update()
+                obj.matrix_world = old_matrix
                 
         return {'FINISHED'}
